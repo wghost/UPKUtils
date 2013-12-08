@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="UPKUtils" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="ExtractNameLists">
+				<Option output="bin/ExtractNameLists" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/ExtractNameLists" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
+			<Target title="FindObjectEntry">
+				<Option output="bin/FindObjectEntry" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/FindObjectEntry" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
+			<Target title="RepairFunction">
+				<Option output="bin/RepairFunction" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/RepairFunction" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
+			<Target title="PatchUPK">
+				<Option output="bin/PatchUPK" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/PatchUPK" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
+			<Target title="MoveExpandFunction">
+				<Option output="bin/MoveExpandFunction" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/MoveExpandFunction" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-std=c++11" />
+			<Add option="-Wall" />
+			<Add option="-fexceptions" />
+		</Compiler>
+		<Linker>
+			<Add option="-static-libgcc" />
+			<Add option="-static-libstdc++" />
+		</Linker>
+		<Unit filename="ExtractNameLists.cpp">
+			<Option target="ExtractNameLists" />
+		</Unit>
+		<Unit filename="FindObjectEntry.cpp">
+			<Option target="FindObjectEntry" />
+		</Unit>
+		<Unit filename="ModParser.cpp">
+			<Option target="PatchUPK" />
+		</Unit>
+		<Unit filename="ModParser.h">
+			<Option target="PatchUPK" />
+		</Unit>
+		<Unit filename="MoveExpandFunction.cpp">
+			<Option target="MoveExpandFunction" />
+		</Unit>
+		<Unit filename="PatchUPK.cpp">
+			<Option target="PatchUPK" />
+		</Unit>
+		<Unit filename="RepairFunction.cpp">
+			<Option target="RepairFunction" />
+		</Unit>
+		<Unit filename="UPKUtils.cpp" />
+		<Unit filename="UPKUtils.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
