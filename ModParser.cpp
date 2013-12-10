@@ -177,7 +177,8 @@ int ModParser::FindKey(std::string str)
     if (pos == std::string::npos)
         return -1;
     std::string name = str.substr(0, pos);
-    name = name.substr(name.find_first_not_of(" "), name.find_last_not_of(" ") + 1);
+    name = name.substr(name.find_first_not_of(" "));
+    name = name.substr(0, name.find_last_not_of(" ") + 1);
     int idx = FindKeyNameIdx(name);
     return idx;
 }
@@ -187,7 +188,8 @@ int ModParser::FindSection(std::string str)
     if (str.find("[") == std::string::npos || str.find("]") == std::string::npos)
         return -1;
     std::string name = str;
-    name = name.substr(name.find_first_not_of(" "), name.find_last_not_of(" ") + 1);
+    name = name.substr(name.find_first_not_of(" "));
+    name = name.substr(0, name.find_last_not_of(" ") + 1);
     int idx = FindSectionNameIdx(name);
     return idx;
 }

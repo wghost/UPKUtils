@@ -6,6 +6,13 @@
 #include <vector>
 #include <cassert>
 
+struct Generation
+{
+    uint32_t ExportCount;
+    uint32_t NameCount;
+    uint32_t NetObjectCount;
+};
+
 struct packageHeader
 {
     uint32_t Signature;
@@ -21,6 +28,17 @@ struct packageHeader
   	uint32_t ExportOffset;
   	uint32_t ImportCount;
   	uint32_t ImportOffset;
+  	uint32_t DependsOffset;
+  	uint32_t Unknown1;
+  	uint32_t Unknown2;
+  	uint32_t Unknown3;
+  	uint32_t Unknown4;
+  	std::vector<uint8_t>  GUID;
+  	uint32_t GenerationsCount;
+    std::vector<Generation> generations;
+    uint32_t EngineVersion;
+    uint32_t CookerVersion;
+    uint32_t CompressionFlags;
 };
 
 struct NameListEntry

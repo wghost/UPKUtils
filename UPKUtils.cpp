@@ -62,6 +62,7 @@ bool UPKUtils::ReadUPKHeader()
     NameListOffsets.clear();
     ObjectList.clear();
     ImportList.clear();
+    header.generations.clear();
 
     if (!upkFile.is_open() || !upkFile.good())
         return false;
@@ -84,6 +85,28 @@ bool UPKUtils::ReadUPKHeader()
     upkFile.read(reinterpret_cast<char*>(&header.ExportOffset), sizeof(header.ExportOffset));
     upkFile.read(reinterpret_cast<char*>(&header.ImportCount), sizeof(header.ExportCount));
     upkFile.read(reinterpret_cast<char*>(&header.ImportOffset), sizeof(header.ImportOffset));
+    upkFile.read(reinterpret_cast<char*>(&header.DependsOffset), sizeof(header.DependsOffset));
+
+    upkFile.read(reinterpret_cast<char*>(&header.Unknown1), sizeof(header.Unknown1));
+    upkFile.read(reinterpret_cast<char*>(&header.Unknown2), sizeof(header.Unknown2));
+    upkFile.read(reinterpret_cast<char*>(&header.Unknown3), sizeof(header.Unknown3));
+    upkFile.read(reinterpret_cast<char*>(&header.Unknown4), sizeof(header.Unknown4));
+
+    header.GUID.resize(16);
+    upkFile.read(reinterpret_cast<char*>(header.GUID.data()), header.GUID.size());
+
+    upkFile.read(reinterpret_cast<char*>(&header.GenerationsCount), sizeof(header.GenerationsCount));
+
+    for (uint32_t i = 0; i < header.GenerationsCount; ++i)
+    {
+        Generation EntryToRead;
+        upkFile.read(reinterpret_cast<char*>(&EntryToRead), sizeof(EntryToRead));
+        header.generations.push_back(EntryToRead);
+    }
+
+    upkFile.read(reinterpret_cast<char*>(&header.EngineVersion), sizeof(header.EngineVersion));
+    upkFile.read(reinterpret_cast<char*>(&header.CookerVersion), sizeof(header.CookerVersion));
+    upkFile.read(reinterpret_cast<char*>(&header.CompressionFlags), sizeof(header.CompressionFlags));
 
     upkFile.seekg(header.NameOffset);
 
