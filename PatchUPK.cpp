@@ -33,7 +33,7 @@ int main(int argN, char* argV[])
 
     if (!parser.OpenModFile(argV[1]))
     {
-        cerr << "Can't open " << argV[1] << endl;
+        cerr << "Can't open " << argV[1] << " (file does not exist, or bad, or not ASCII)!" << endl;
         return 1;
     }
 
@@ -70,8 +70,6 @@ int main(int argN, char* argV[])
 
     parser.SetCommentMarkers('{', '}', 0);
 
-    int idx = parser.FindNext();
-
     UPKUtils package;
 
     string upkFileName = "", upkFileNameSaved = "";
@@ -83,6 +81,14 @@ int main(int argN, char* argV[])
     std::vector<char> dataChunk;
     fstream binFile;
     size_t binFileSize = 0;
+
+    int idx = parser.FindNext();
+
+    if (idx == -1)
+    {
+        cerr << "Bad/unknown mod file format!" << endl;
+        return 1;
+    }
 
     while (idx != -1)
     {

@@ -108,14 +108,14 @@ std::string ModParser::GetLine()
 
     int ch = 0;
 
-    while(ch != 0x0D && modFile.good())
+    while(ch != 0x0D && ch != 0x0A && modFile.good())
     {
         ch = modFile.get();
         if (modFile.fail() || modFile.bad())
             break;
         if (ch == commentLine)
         {
-            while (ch != 0x0D && modFile.good())
+            while (ch != 0x0D && ch != 0x0A && modFile.good())
                 ch = modFile.get();
             break;
         }
@@ -124,13 +124,13 @@ std::string ModParser::GetLine()
             while (ch != commentEnd && modFile.good())
                 ch = modFile.get();
         }
-        else if (ch != 0x0D)
+        else if (ch != 0x0D && ch != 0x0A)
         {
             line += ch;
         }
     }
 
-    if (modFile.peek() == 0x0A)
+    if (modFile.peek() == 0x0A || modFile.peek() == 0x0D)
         modFile.get();
 
     return line;
@@ -218,6 +218,22 @@ bool ModParser::OpenModFile(const char* name)
 
     if (!modFile.good())
         return false;
+
+    // check if file is text
+    while (modFile.good())
+    {
+        char ch = modFile.get();
+        if (!modFile.good())
+            break;
+        if (ch < 1 || ch > 127)
+        {
+            modFile.close();
+            return false;
+        }
+    }
+
+    modFile.clear();
+    modFile.seekg(0);
 
     return true;
 }

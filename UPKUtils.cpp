@@ -67,8 +67,8 @@ bool UPKUtils::ReadUPKHeader()
     if (!upkFile.is_open() || !upkFile.good())
         return false;
 
-    upkFile.seekg(0, std::ios::beg);
     upkFile.clear();
+    upkFile.seekg(0, std::ios::beg);
 
     upkFile.read(reinterpret_cast<char*>(&header.Signature), sizeof(header.Signature));
     upkFile.read(reinterpret_cast<char*>(&header.Version), sizeof(header.Version));
@@ -347,8 +347,8 @@ size_t UPKUtils::FindDataChunk(std::vector<char> data)
         ++idx;
     }
 
-    upkFile.seekg(header.NameOffset);
     upkFile.clear();
+    upkFile.seekg(header.NameOffset);
     return offset;
 }
 
