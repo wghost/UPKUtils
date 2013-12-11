@@ -5,6 +5,8 @@
 #include <fstream>
 #include <vector>
 
+std::string hex2str(char *data, size_t dataSize);
+
 class ModParser
 {
 public:

@@ -36,10 +36,14 @@ int main(int argN, char* argV[])
 
     ObjectListEntry EntryToRead = package.GetObjectListEntryByIdx(idx);
     cout << hex << showbase << "Object table index: " << idx << " (" << dec << idx << ")" << endl
-         << hex << "Object type: " << EntryToRead.ObjType << endl
+         << hex << "Object type: " << EntryToRead.ObjTypeRef << endl
+         << "Type string: " << package.GetObjectOrImportNameByIdx(EntryToRead.ObjTypeRef) << endl
          << "Parent class reference: " << EntryToRead.ParentClassRef << endl
+         << "Parent class string: " << package.GetObjectOrImportNameByIdx(EntryToRead.ParentClassRef) << endl
          << "Owner reference: " << EntryToRead.OwnerRef << endl
+         << "Owner string: " << package.GetObjectOrImportNameByIdx(EntryToRead.OwnerRef) << endl
          << "Index to name list table: " << EntryToRead.NameListIdx << endl
+         << "Name list string: " << package.GetNameByIdx(EntryToRead.NameListIdx) << endl
          << "Unknown Field 5: " << EntryToRead.Field5 << endl
          << "Unknown Field 6: " << EntryToRead.Field5 << endl
          << "Property flags: " << EntryToRead.PropertyFlags << endl

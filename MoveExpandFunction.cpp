@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <cstring>
 
 #include "UPKUtils.h"
 
@@ -11,7 +12,7 @@ int main(int argN, char* argV[])
 
     if (argN < 3 || argN > 4)
     {
-        cerr << "Usage: FindObjectEntry UnpackedResourceFile.upk FunctionName [NewFunctionSize]" << endl;
+        cerr << "Usage: FindObjectEntry UnpackedResourceFile.upk FunctionName [NewFunctionSize or /u]" << endl;
         return 1;
     }
 
@@ -37,33 +38,49 @@ int main(int argN, char* argV[])
 
     ObjectListEntry EntryToRead = package.GetObjectListEntryByIdx(idx);
 
-    uint32_t newFunctionSize = 0;
+    cout << "Function size: " << hex << showbase << EntryToRead.ObjectFileSize << endl;
+    cout << "Function offset: " << hex << showbase << EntryToRead.DataOffset << endl;
 
-    cout << "Function size: " << EntryToRead.ObjectFileSize << endl;
+    uint32_t newFunctionSize = 0;
+    bool bUndoMove = false;
 
     if (argN == 4)
     {
-        string str(argV[3]);
-
-        istringstream ss(str);
-
-        if (str.find("0x") != string::npos)
-            ss >> hex >> newFunctionSize;
-        else
-            ss >> dec >> newFunctionSize;
-
-        cout << "Resize function to: " << newFunctionSize << endl;
-
-        if (newFunctionSize <= EntryToRead.ObjectFileSize)
+        if (strcmp(argV[3], "/u") == 0)
         {
-            cerr << "Can't expand function: existing function size is greater than specified value!" << endl;
-            return 1;
+            bUndoMove = true;
+        }
+        else
+        {
+            string str(argV[3]);
+
+            istringstream ss(str);
+
+            if (str.find("0x") != string::npos)
+                ss >> hex >> newFunctionSize;
+            else
+                ss >> dec >> newFunctionSize;
+
+            cout << "Resize function to: " << hex << showbase << newFunctionSize << endl;
+
+            if (newFunctionSize <= EntryToRead.ObjectFileSize)
+            {
+                cerr << "Can't expand function: existing function size is greater than specified value!" << endl;
+                return 1;
+            }
         }
     }
 
-    package.MoveObject(idx, newFunctionSize, true);
-
-    cout << "Object moved successfully!" << endl;
+    if (!bUndoMove)
+    {
+        package.MoveObject(idx, newFunctionSize);
+        cout << "Object moved successfully!" << endl;
+    }
+    else
+    {
+        package.UndoMoveObject(idx);
+        cout << "Object restored successfully!" << endl;
+    }
 
     return 0;
 }

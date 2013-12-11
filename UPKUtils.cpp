@@ -3,6 +3,11 @@
 #include <iostream>
 #include <cstring>
 
+uint8_t PatchUPKhash [] = {0x7A, 0xA0, 0x56, 0xC9,
+                           0x60, 0x5F, 0x7B, 0x31,
+                           0x72, 0x5D, 0x4B, 0xC4,
+                           0x7C, 0xD2, 0x4D, 0xD9 };
+
 UPKUtils::UPKUtils(const char filename[])
 {
     upkFile.open(filename, std::ios::binary | std::ios::in | std::ios::out);
@@ -211,7 +216,7 @@ bool UPKUtils::ReconstructObjectNames()
             if (nameRef != 0 && nameRef < NameList.size())
                 NameString = NameList[nameRef].NameString + "." + NameString;
         }
-        NameString = NameList[EntryToRead.PackageID].NameString + "::" + NameString;
+        NameString = NameList[EntryToRead.PackageIDidx].NameString + "::" + NameString;
         ImportNameList.push_back(NameString);
     }
 
@@ -284,13 +289,20 @@ std::vector<char> UPKUtils::GetObjectData(int idx)
     return data;
 }
 
-bool UPKUtils::WriteObjectData(int idx, std::vector<char> data)
+bool UPKUtils::WriteObjectData(int idx, std::vector<char> data, std::vector<char> *backupData)
 {
     assert(idx >= 0 && size_t(idx) < ObjectList.size());
     if (!upkFile.is_open() || !upkFile.good())
         return false;
     if (ObjectList[idx].ObjectFileSize != data.size())
         return false;
+    if (backupData != nullptr)
+    {
+        backupData->clear();
+        backupData->resize(data.size());
+        upkFile.seekg(ObjectList[idx].DataOffset);
+        upkFile.read(backupData->data(), backupData->size());
+    }
     upkFile.seekp(ObjectList[idx].DataOffset);
     upkFile.write(data.data(), data.size());
     return true;
@@ -310,12 +322,19 @@ bool UPKUtils::WriteNamelistName(int idx, std::string name)
     return true;
 }
 
-bool UPKUtils::WriteData(size_t offset, std::vector<char> data)
+bool UPKUtils::WriteData(size_t offset, std::vector<char> data, std::vector<char> *backupData)
 {
     if (!CheckValidFileOffset(offset))
         return false;
     if (!upkFile.is_open() || !upkFile.good())
         return false;
+    if (backupData != nullptr)
+    {
+        backupData->clear();
+        backupData->resize(data.size());
+        upkFile.seekg(offset);
+        upkFile.read(backupData->data(), backupData->size());
+    }
     upkFile.seekp(offset);
     upkFile.write(data.data(), data.size());
     if (offset < header.ImportOffset) // changed name/objectlist data
@@ -352,11 +371,12 @@ size_t UPKUtils::FindDataChunk(std::vector<char> data)
     return offset;
 }
 
-bool UPKUtils::MoveObject(int idx, uint32_t newObjectSize, bool isFunction)
+bool UPKUtils::MoveObject(int idx, uint32_t newObjectSize)
 {
     std::vector<char> data = GetObjectData(idx);
     upkFile.seekg(0, std::ios::end);
     uint32_t newObjectOffset = upkFile.tellg();
+    bool isFunction = (GetObjectOrImportNameByIdx(ObjectList[idx].ObjTypeRef).find("Function") != std::string::npos);
     if (newObjectSize > ObjectList[idx].ObjectFileSize)
     {
         upkFile.seekp(ObjectListOffsets[idx] + sizeof(uint32_t)*8);
@@ -390,6 +410,32 @@ bool UPKUtils::MoveObject(int idx, uint32_t newObjectSize, bool isFunction)
     upkFile.write(reinterpret_cast<char*>(&newObjectOffset), sizeof(newObjectOffset));
     upkFile.seekp(newObjectOffset);
     upkFile.write(data.data(), data.size());
+    // write backup info
+    upkFile.write(reinterpret_cast<char*>(&PatchUPKhash[0]), 16);
+    upkFile.write(reinterpret_cast<char*>(&ObjectList[idx].ObjectFileSize), sizeof(ObjectList[idx].ObjectFileSize));
+    upkFile.write(reinterpret_cast<char*>(&ObjectList[idx].DataOffset), sizeof(ObjectList[idx].DataOffset));
+    // backup info end
+    upkFile.seekg(0, std::ios::end);
+    upkFileSize = upkFile.tellg();
+    upkFile.seekg(0, std::ios::beg);
+    ReadUPKHeader();
+    ReconstructObjectNames();
+    return true;
+}
+
+bool UPKUtils::UndoMoveObject(int idx)
+{
+    upkFile.seekg(ObjectList[idx].DataOffset + ObjectList[idx].ObjectFileSize);
+    uint8_t readHash [16];
+    upkFile.read(reinterpret_cast<char*>(&readHash[0]), 16);
+    if (memcmp(readHash, PatchUPKhash, 16) != 0)
+        return false;
+    uint32_t oldObjectFileSize, oldObjectOffset;
+    upkFile.read(reinterpret_cast<char*>(&oldObjectFileSize), sizeof(oldObjectFileSize));
+    upkFile.read(reinterpret_cast<char*>(&oldObjectOffset), sizeof(oldObjectOffset));
+    upkFile.seekp(ObjectListOffsets[idx] + sizeof(uint32_t)*8);
+    upkFile.write(reinterpret_cast<char*>(&oldObjectFileSize), sizeof(oldObjectFileSize));
+    upkFile.write(reinterpret_cast<char*>(&oldObjectOffset), sizeof(oldObjectOffset));
     upkFile.seekg(0, std::ios::end);
     upkFileSize = upkFile.tellg();
     upkFile.seekg(0, std::ios::beg);
@@ -434,4 +480,12 @@ std::string UPKUtils::GetImportNameByIdx(int idx)
 {
     assert(idx >= 0 && size_t(idx) < ImportNameList.size());
     return ImportNameList[idx];
+}
+
+std::string UPKUtils::GetObjectOrImportNameByIdx(int idx)
+{
+    if (idx < 0)
+        return GetImportNameByIdx(-idx);
+    else
+        return GetObjectNameByIdx(idx);
 }

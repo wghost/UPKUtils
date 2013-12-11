@@ -6,6 +6,12 @@
 
 using namespace std;
 
+std::string GetFilename(std::string str)
+{
+    unsigned found = str.find_last_of("/\\");
+    return str.substr(found + 1);
+}
+
 int string2int(string str)
 {
     int val = 0;
@@ -61,6 +67,7 @@ int main(int argN, char* argV[])
     parser.AddKeyName(string("FUNCTION_FILE"));
     parser.AddKeyName(string("NAMELIST_NAME"));
     parser.AddKeyName(string("EXPAND_FUNCTION"));
+    parser.AddKeyName(string("EXPAND_UNDO"));
 
     parser.AddSectionName(string("[MODDED_HEX]"));
     parser.AddSectionName(string("[BEFORE_HEX]"));
@@ -78,7 +85,7 @@ int main(int argN, char* argV[])
     int functionIdx = -1, namelistIdx = -1, functionSize = 0;
     size_t colonPos = string::npos;
 
-    std::vector<char> dataChunk;
+    std::vector<char> dataChunk, backupDataChunk;
     fstream binFile;
     size_t binFileSize = 0;
 
@@ -89,6 +96,11 @@ int main(int argN, char* argV[])
         cerr << "Bad/unknown mod file format!" << endl;
         return 1;
     }
+
+    ostringstream backupString;
+    backupString << "MOD_NAME=" << GetFilename(argV[1]) << " uninstall script\n"
+                 << "AUTHOR=PatchUPK\n"
+                 << "DESCRIPTION=This is automatically generated uninstall script. Do not change anything!\n\n";
 
     while (idx != -1)
     {
@@ -125,6 +137,7 @@ int main(int argN, char* argV[])
                 rel_offset = 0;
                 functionName = "";
                 functionFile = "";
+                backupString << "UPK_FILE=" << upkFileName << "\n\n";
                 break;
             case 4:
                 if (!package.good())
@@ -234,7 +247,7 @@ int main(int argN, char* argV[])
                     }
                     offset = package.GetObjectListEntryByIdx(functionIdx).DataOffset;
                     cout << "Writing new data at " << hex << showbase << offset << dec << " in " << upkFileName << endl;
-                    if (!package.WriteObjectData(functionIdx, dataChunk))
+                    if (!package.WriteObjectData(functionIdx, dataChunk, &backupDataChunk))
                     {
                         cerr << "Error writing to upk file: " << upkFileName << endl;
                         return 1;
@@ -243,12 +256,16 @@ int main(int argN, char* argV[])
                 else
                 {
                     cout << "Writing new data at " << hex << showbase << offset << dec << " in " << upkFileName << endl;
-                    if (!package.WriteData(offset, dataChunk))
+                    if (!package.WriteData(offset, dataChunk, &backupDataChunk))
                     {
                         cerr << "Error writing to upk file: " << upkFileName << endl;
                         return 1;
                     }
                 }
+                backupString << "OFFSET=" << offset << "\n"
+                             << "[MODDED_HEX]\n"
+                             << hex2str(backupDataChunk.data(), backupDataChunk.size())
+                             << "\n";
                 cout << "Write successfull!" << endl;
                 dataChunk.clear();
                 offset = 0;
@@ -289,6 +306,7 @@ int main(int argN, char* argV[])
                     cerr << "Error writing to upk file: " << upkFileName << endl;
                     return 1;
                 }
+                backupString << "NAMELIST_NAME=" << newName << ":" << namelistName << "\n\n";
                 offset = 0;
                 rel_offset = 0;
                 functionName = "";
@@ -322,8 +340,34 @@ int main(int argN, char* argV[])
                     cerr << "Existing function size is greater than specified value!" << endl;
                     return 1;
                 }
-                package.MoveObject(functionIdx, functionSize, true);
+                package.MoveObject(functionIdx, functionSize);
                 cout << "Function moved successfully!" << endl;
+                backupString << "EXPAND_UNDO=" << functionName << "\n\n";
+                offset = 0;
+                rel_offset = 0;
+                functionName = "";
+                functionFile = "";
+                break;
+            case 10:
+                if (!package.good())
+                {
+                    cerr << "Package file not set!" << endl;
+                    return 1;
+                }
+                functionName = parser.GetStringValue();
+                cout << "Undo function expand: " << functionName << endl;
+                functionIdx = package.FindObjectListEntryByName(functionName);
+                if (functionIdx <= 0)
+                {
+                    cerr << "Can't find function " << functionName << " in package " << upkFileName << endl;
+                    return 1;
+                }
+                if (!package.UndoMoveObject(functionIdx))
+                {
+                    cerr << "Can't undo function expand!" << endl;
+                    return 1;
+                }
+                cout << "Function restored successfully!" << endl;
                 offset = 0;
                 rel_offset = 0;
                 functionName = "";
@@ -362,12 +406,16 @@ int main(int argN, char* argV[])
                     return 1;
                 }
                 cout << "Writing new data at " << hex << showbase << offset + rel_offset << dec << " in " << upkFileName << endl;
-                if (!package.WriteData(offset + rel_offset, dataChunk))
+                if (!package.WriteData(offset + rel_offset, dataChunk, &backupDataChunk))
                 {
                     cerr << "Error writing to upk file: " << upkFileName << endl;
                     return 1;
                 }
                 cout << "Write successfull!" << endl;
+                backupString << "OFFSET=" << (offset + rel_offset) << "\n"
+                             << "[MODDED_HEX]\n"
+                             << hex2str(backupDataChunk.data(), backupDataChunk.size())
+                             << "\n";
                 if (rel_offset == 0)
                     offset = 0;
                 rel_offset = 0;
@@ -410,6 +458,18 @@ int main(int argN, char* argV[])
             }
         }
         idx = parser.FindNext();
+    }
+
+    if (string(argV[1]).find(".uninstall.txt") == string::npos)
+    {
+        ofstream uninstFile(string(argV[1]) + ".uninstall.txt");
+        if (!uninstFile.good())
+        {
+            cerr << "Error saving uninstall script!" << endl;
+            return 1;
+        }
+        uninstFile << backupString.str();
+        cout << "Uninstall script saved to " << argV[1] << ".uninstall.txt" << endl;
     }
 
     return 0;

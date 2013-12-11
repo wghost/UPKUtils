@@ -70,18 +70,9 @@ int main(int argN, char* argV[])
     for (int i = 1; i < package.GetObjectListSize(); ++i)
     {
         ObjectListEntry EntryToRead = package.GetObjectListEntryByIdx(i);
-
         cout << hex << showbase << "Index: " << i << " (" << dec << i << ")"
-             << ", Name: " << package.GetObjectNameByIdx(i) << endl;
-
-        cout << hex << "Object type: " << EntryToRead.ObjType << endl
-             << "Parent class reference: " << EntryToRead.ParentClassRef << endl
-             << "Owner reference: " << EntryToRead.OwnerRef << endl
-             << "Index to name list table: " << EntryToRead.NameListIdx << endl
-             << "Property flags: " << EntryToRead.PropertyFlags << endl
-             << "Object file size: " << EntryToRead.ObjectFileSize << endl
-             << "Object data offset: " << EntryToRead.DataOffset << endl
-             << "Num additional fields: " << EntryToRead.NumAdditionalFields << endl;
+             << "; Name: " << package.GetObjectNameByIdx(i)
+             << "; Type: " << package.GetObjectOrImportNameByIdx(EntryToRead.ObjTypeRef) << endl;
     }
 
     cout << "Import list table:" << endl;
@@ -91,12 +82,8 @@ int main(int argN, char* argV[])
         ImportListEntry EntryToRead = package.GetImportListEntryByIdx(i);
 
         cout << hex << showbase << "Index: " << i << " (" << dec << i << ")"
-             << ", Name: " << package.GetImportNameByIdx(i) << endl;
-
-        cout << hex << "Object type: " << EntryToRead.ObjType << endl
-             << "Package ID: " << EntryToRead.PackageID << endl
-             << "Owner reference: " << EntryToRead.OwnerRef << endl
-             << "Index to name list table: " << EntryToRead.NameListIdx << endl;
+             << "; Name: " << package.GetImportNameByIdx(i)
+             << "; Type: " << package.GetNameByIdx(EntryToRead.ObjTypeIdx) << endl;
     }
 
     return 0;

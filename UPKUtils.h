@@ -51,9 +51,9 @@ struct NameListEntry
 
 struct ObjectListEntry
 {
-    uint32_t ObjType;
-    uint32_t ParentClassRef;
-    uint32_t OwnerRef;
+    int32_t  ObjTypeRef;
+    int32_t  ParentClassRef;
+    int32_t  OwnerRef;
     uint32_t NameListIdx;
     uint32_t Field5;
     uint32_t Field6;
@@ -72,11 +72,11 @@ struct ObjectListEntry
 
 struct ImportListEntry
 {
-    uint32_t PackageID;
+    uint32_t PackageIDidx;
     uint32_t Field1;
-    uint32_t ObjType;
+    uint32_t ObjTypeIdx;
     uint32_t Field3;
-    uint32_t OwnerRef;
+    int32_t  OwnerRef;
     uint32_t NameListIdx;
     uint32_t Field6;
 };
@@ -114,17 +114,19 @@ public:
     std::string GetNameByIdx(int idx);
     std::string GetObjectNameByIdx(int idx);
     std::string GetImportNameByIdx(int idx);
+    std::string GetObjectOrImportNameByIdx(int idx);
 
     size_t GetFileSize();
     bool CheckValidFileOffset(size_t offset);
     bool good();
 
     std::vector<char> GetObjectData(int idx);
-    bool WriteObjectData(int idx, std::vector<char> data);
+    bool WriteObjectData(int idx, std::vector<char> data, std::vector<char> *backupData = nullptr);
     bool WriteNamelistName(int idx, std::string name);
-    bool WriteData(size_t offset, std::vector<char> data);
+    bool WriteData(size_t offset, std::vector<char> data, std::vector<char> *backupData = nullptr);
 
-    bool MoveObject(int idx, uint32_t newObjectSize = 0, bool isFunction = false);
+    bool MoveObject(int idx, uint32_t newObjectSize = 0);
+    bool UndoMoveObject(int idx);
 
 private:
     std::fstream upkFile;

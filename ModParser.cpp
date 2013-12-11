@@ -3,6 +3,26 @@
 #include <iostream>
 #include <sstream>
 
+const char chLookup[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+std::string hex2str(char *data, size_t dataSize)
+{
+    std::string out = "";
+    for (unsigned i = 0; i < dataSize; ++i)
+    {
+        if ((i%16 == 0) && (i != 0))
+            out += '\n';
+        uint8_t ch = data[i];
+        uint8_t up = ((ch & 0xF0) >> 4);
+        uint8_t lw =  (ch & 0x0F);
+        out += chLookup[up];
+        out += chLookup[lw];
+        out += ' ';
+    }
+    out += '\n';
+    return out;
+}
+
 std::string ModParser::GetText()
 {
     std::string str = "";
