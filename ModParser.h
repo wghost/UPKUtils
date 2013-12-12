@@ -32,6 +32,7 @@ public:
     std::vector<char> GetDataChunk();
     std::string GetStringValue();
     int GetIntValue();
+    float GetFloatValue();
 
 protected:
     std::string GetLine();

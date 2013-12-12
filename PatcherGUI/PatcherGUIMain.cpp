@@ -13,6 +13,7 @@
 #include <wx/time.h>
 #include <wx/filedlg.h>
 #include <wx/dirdlg.h>
+#include <wx/filename.h>
 #include "SettingsDialog.h"
 
 #include <fstream>
@@ -192,7 +193,14 @@ void PatcherGUIFrame::OnSaveModFile(wxCommandEvent& event)
 
 void PatcherGUIFrame::OnSaveModFileAs(wxCommandEvent& event)
 {
-    wxFileDialog saveFileDialog(this, _("Select a file"), "", "", "Text files (*.txt)|*.txt", wxFD_SAVE|wxFD_OVERWRITE_PROMPT);
+    wxString defDir = "";
+
+    wxFileName::SplitPath(TextCtrl2->GetValue(), &defDir, NULL, NULL);
+
+    if (!wxDirExists(defDir))
+        defDir = "";
+
+    wxFileDialog saveFileDialog(this, _("Select a file"), defDir, "", "Text files (*.txt)|*.txt", wxFD_SAVE|wxFD_OVERWRITE_PROMPT);
 
     if (saveFileDialog.ShowModal() == wxID_CANCEL)
         return;
@@ -205,7 +213,12 @@ void PatcherGUIFrame::OnSaveModFileAs(wxCommandEvent& event)
 
 void PatcherGUIFrame::OnSelectDirectory(wxCommandEvent& event)
 {
-    wxDirDialog dirDialog(NULL, _("Select a directory"), "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+    wxString defDir = TextCtrl1->GetValue();
+
+    if (!wxDirExists(defDir))
+        defDir = "";
+
+    wxDirDialog dirDialog(NULL, _("Select a directory"), defDir, wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
 
     if (dirDialog.ShowModal() == wxID_CANCEL)
         return;
@@ -223,7 +236,15 @@ void PatcherGUIFrame::OnSelectModFile(wxCommandEvent& event)
             return;
     }
 
-    wxFileDialog openFileDialog(this, _("Select mod file"), "", "", "Text files (*.txt)|*.txt", wxFD_OPEN|wxFD_FILE_MUST_EXIST);
+    wxString defDir = wxGetCwd() + "\\Mods";
+
+    if (RichTextCtrl1->GetFilename() != wxEmptyString)
+        wxFileName::SplitPath(RichTextCtrl1->GetFilename(), &defDir, NULL, NULL);
+
+    if (!wxDirExists(defDir))
+        defDir = "";
+
+    wxFileDialog openFileDialog(this, _("Select mod file"), defDir, "", "Text files (*.txt)|*.txt", wxFD_OPEN|wxFD_FILE_MUST_EXIST);
 
     if (openFileDialog.ShowModal() == wxID_CANCEL)
         return;

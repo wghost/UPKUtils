@@ -122,6 +122,17 @@ int ModParser::GetIntValue()
     return val;
 }
 
+float ModParser::GetFloatValue()
+{
+    float val = 0;
+    std::string str = GetStringValue();
+    if (str == "")
+        return val;
+    std::istringstream ss(str);
+    ss >> val;
+    return val;
+}
+
 std::string ModParser::GetLine()
 {
     std::string line = "";

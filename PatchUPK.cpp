@@ -1,12 +1,28 @@
 #include <iostream>
 #include <sstream>
+#include <cstring>
 
 #include "UPKUtils.h"
 #include "ModParser.h"
 
 using namespace std;
 
-std::string GetFilename(std::string str)
+bool FileExists(string str)
+{
+    ifstream in(str);
+    return in.good();
+}
+
+string int2fstr(int val)
+{
+    if (val <= 0)
+        return string("");
+    ostringstream ss;
+    ss << dec << val;
+    return ss.str();
+}
+
+string GetFilename(string str)
 {
     unsigned found = str.find_last_of("/\\");
     return str.substr(found + 1);
@@ -68,6 +84,9 @@ int main(int argN, char* argV[])
     parser.AddKeyName(string("NAMELIST_NAME"));
     parser.AddKeyName(string("EXPAND_FUNCTION"));
     parser.AddKeyName(string("EXPAND_UNDO"));
+    parser.AddKeyName(string("BYTE"));
+    parser.AddKeyName(string("FLOAT"));
+    parser.AddKeyName(string("INTEGER"));
 
     parser.AddSectionName(string("[MODDED_HEX]"));
     parser.AddSectionName(string("[BEFORE_HEX]"));
@@ -84,6 +103,9 @@ int main(int argN, char* argV[])
     string functionName = "", functionFile = "", namelistName = "", newName = "", stringData = "";
     int functionIdx = -1, namelistIdx = -1, functionSize = 0;
     size_t colonPos = string::npos;
+    uint8_t byteVal = 0;
+    float floatVal = 0;
+    int32_t intVal = 0;
 
     std::vector<char> dataChunk, backupDataChunk;
     fstream binFile;
@@ -343,7 +365,7 @@ int main(int argN, char* argV[])
                 package.MoveObject(functionIdx, functionSize);
                 cout << "Function moved successfully!" << endl;
                 backupString << "EXPAND_UNDO=" << functionName << "\n\n";
-                offset = 0;
+                offset = package.GetObjectListEntryByIdx(functionIdx).DataOffset;
                 rel_offset = 0;
                 functionName = "";
                 functionFile = "";
@@ -371,6 +393,59 @@ int main(int argN, char* argV[])
                 offset = 0;
                 rel_offset = 0;
                 functionName = "";
+                functionFile = "";
+                break;
+            case 11:
+            case 12:
+            case 13:
+                if (!package.good())
+                {
+                    cerr << "Package file not set!" << endl;
+                    return 1;
+                }
+                if (offset == 0)
+                {
+                    cerr << "Offset value not set!" << endl;
+                    return 1;
+                }
+                dataChunk.clear();
+                if (idx == 11)
+                {
+                    byteVal = parser.GetIntValue();
+                    dataChunk.resize(1);
+                    memcpy(dataChunk.data(), reinterpret_cast<char*>(&byteVal), 1);
+                }
+                else if (idx == 12)
+                {
+                    floatVal = parser.GetFloatValue();
+                    dataChunk.resize(4);
+                    memcpy(dataChunk.data(), reinterpret_cast<char*>(&floatVal), 4);
+                }
+                else
+                {
+                    intVal = parser.GetIntValue();
+                    dataChunk.resize(4);
+                    memcpy(dataChunk.data(), reinterpret_cast<char*>(&intVal), 4);
+                }
+                if (!package.CheckValidFileOffset(offset + rel_offset + dataChunk.size()))
+                {
+                    cerr << "Incorrect offset value!" << endl;
+                    return 1;
+                }
+                cout << "Writing new data at " << hex << showbase << offset + rel_offset << dec << " in " << upkFileName << endl;
+                if (!package.WriteData(offset + rel_offset, dataChunk, &backupDataChunk))
+                {
+                    cerr << "Error writing to upk file: " << upkFileName << endl;
+                    return 1;
+                }
+                cout << "Write successfull!" << endl;
+                backupString << "OFFSET=" << (offset + rel_offset) << "\n"
+                             << "[MODDED_HEX]\n"
+                             << hex2str(backupDataChunk.data(), backupDataChunk.size())
+                             << "\n";
+                if (rel_offset == 0)
+                    offset = 0;
+                rel_offset = 0;
                 functionFile = "";
                 break;
             default:
@@ -460,16 +535,24 @@ int main(int argN, char* argV[])
         idx = parser.FindNext();
     }
 
-    if (string(argV[1]).find(".uninstall.txt") == string::npos)
+    if (string(argV[1]).find(".uninstall") == string::npos)
     {
-        ofstream uninstFile(string(argV[1]) + ".uninstall.txt");
+        unsigned i = 0;
+        string nextName = "";
+        do
+        {
+            nextName = string(argV[1]) + string(".uninstall") + int2fstr(i) + string(".txt");
+            ++i;
+        } while (FileExists(nextName));
+
+        ofstream uninstFile(nextName);
         if (!uninstFile.good())
         {
             cerr << "Error saving uninstall script!" << endl;
             return 1;
         }
         uninstFile << backupString.str();
-        cout << "Uninstall script saved to " << argV[1] << ".uninstall.txt" << endl;
+        cout << "Uninstall script saved to " << nextName << endl;
     }
 
     return 0;
