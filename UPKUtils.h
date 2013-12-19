@@ -6,6 +6,32 @@
 #include <vector>
 #include <cassert>
 
+struct UnrealFunctionFlags
+{
+    uint32_t Static = 0x00002000;
+    uint32_t Singular = 0x00000020;
+    uint32_t Native = 0x00000400;
+    uint32_t NoExport = 0x00004000;
+    uint32_t Exec = 0x00000200;
+    uint32_t Latent = 0x00000008;
+    uint32_t Iterator = 0x00000004;
+    uint32_t Simulated = 0x00000100;
+    uint32_t Server = 0x00200000;
+    uint32_t Client = 0x01000000;
+    uint32_t Reliable = 0x00000080;
+//??? Unreliable
+    uint32_t Public = 0x00020000;
+    uint32_t Private = 0x00040000;
+    uint32_t Protected = 0x00080000;
+    uint32_t Operator = 0x00001000;
+    uint32_t PreOperator = 0x00000010;
+//??? PostOperator
+    uint32_t Event = 0x00000800;
+    uint32_t Const = 0x00008000;
+    uint32_t Final = 0x00000001;
+    uint32_t Defined = 0x00000002;
+};
+
 struct Generation
 {
     uint32_t ExportCount;
@@ -45,8 +71,8 @@ struct NameListEntry
 {
     uint32_t NameLength;
     std::string   NameString;
-    uint32_t Field1;
-    uint32_t Field2;
+    uint32_t NameFlagsH;
+    uint32_t NameFlagsL;
 };
 
 struct ObjectListEntry
@@ -57,8 +83,8 @@ struct ObjectListEntry
     uint32_t NameListIdx;
     uint32_t Field5;
     uint32_t Field6;
-    uint32_t PropertyFlags;
-    uint32_t Field8;
+    uint32_t ObjectFlagsH;
+    uint32_t ObjectFlagsL;
     uint32_t ObjectFileSize;
     uint32_t DataOffset;
     uint32_t Field11;

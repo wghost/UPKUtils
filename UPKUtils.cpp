@@ -123,8 +123,8 @@ bool UPKUtils::ReadUPKHeader()
 
         upkFile.read(reinterpret_cast<char*>(&EntryToRead.NameLength), sizeof(EntryToRead.NameLength));
         getline(upkFile, EntryToRead.NameString, '\0');
-        upkFile.read(reinterpret_cast<char*>(&EntryToRead.Field1), sizeof(EntryToRead.Field1));
-        upkFile.read(reinterpret_cast<char*>(&EntryToRead.Field2), sizeof(EntryToRead.Field2));
+        upkFile.read(reinterpret_cast<char*>(&EntryToRead.NameFlagsH), sizeof(EntryToRead.NameFlagsH));
+        upkFile.read(reinterpret_cast<char*>(&EntryToRead.NameFlagsL), sizeof(EntryToRead.NameFlagsL));
 
         NameList.push_back(EntryToRead);
     }

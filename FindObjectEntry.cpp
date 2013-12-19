@@ -37,17 +37,17 @@ int main(int argN, char* argV[])
     ObjectListEntry EntryToRead = package.GetObjectListEntryByIdx(idx);
     cout << hex << showbase << "Object table index: " << idx << " (" << dec << idx << ")" << endl
          << hex << "Object type: " << EntryToRead.ObjTypeRef << endl
-         << "Type string: " << package.GetObjectOrImportNameByIdx(EntryToRead.ObjTypeRef) << endl
+         << "\tType string: " << package.GetObjectOrImportNameByIdx(EntryToRead.ObjTypeRef) << endl
          << "Parent class reference: " << EntryToRead.ParentClassRef << endl
-         << "Parent class string: " << package.GetObjectOrImportNameByIdx(EntryToRead.ParentClassRef) << endl
+         << "\tParent class string: " << package.GetObjectOrImportNameByIdx(EntryToRead.ParentClassRef) << endl
          << "Owner reference: " << EntryToRead.OwnerRef << endl
-         << "Owner string: " << package.GetObjectOrImportNameByIdx(EntryToRead.OwnerRef) << endl
+         << "\tOwner string: " << package.GetObjectOrImportNameByIdx(EntryToRead.OwnerRef) << endl
          << "Index to name list table: " << EntryToRead.NameListIdx << endl
-         << "Name list string: " << package.GetNameByIdx(EntryToRead.NameListIdx) << endl
+         << "\tName list string: " << package.GetNameByIdx(EntryToRead.NameListIdx) << endl
          << "Unknown Field 5: " << EntryToRead.Field5 << endl
-         << "Unknown Field 6: " << EntryToRead.Field5 << endl
-         << "Property flags: " << EntryToRead.PropertyFlags << endl
          << "Unknown Field 6: " << EntryToRead.Field6 << endl
+         << "Object flags H: " << EntryToRead.ObjectFlagsH << endl
+         << "Object flags L: " << EntryToRead.ObjectFlagsL << endl
          << "Object file size: " << EntryToRead.ObjectFileSize << endl
          << "Object data offset: " << EntryToRead.DataOffset << endl
          << "Unknown Field 11: " << EntryToRead.Field11 << endl
