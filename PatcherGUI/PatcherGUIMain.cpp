@@ -56,7 +56,7 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     Create(parent, wxID_ANY, _("XCOM UPK Patcher"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE, _T("wxID_ANY"));
     {
     	wxIcon FrameIcon;
-    	FrameIcon.CopyFromBitmap(wxBitmap(wxImage(_T("D:\\CodeBlocksProj\\UPKUtils\\PatcherGUI\\favicon.ico"))));
+    	FrameIcon.CopyFromBitmap(wxBitmap(wxImage(_T("favicon.ico"))));
     	SetIcon(FrameIcon);
     }
     BoxSizer1 = new wxBoxSizer(wxHORIZONTAL);
@@ -146,17 +146,21 @@ bool PatcherGUIFrame::LoadCFG()
     if (cfg.is_open())
     {
         std::string str = "";
-        cfg >> str;
+        //cfg >> str;
+        getline(cfg, str);
         if (wxDirExists(str + "\\XComGame\\CookedPCConsole"))
         {
             TextCtrl1->SetValue(str);
             bSelectPath = true;
         }
-        cfg >> str;
+        //cfg >> str;
+        getline(cfg, str);
         BackupPathString = str;
-        cfg >> str;
+        //cfg >> str;
+        getline(cfg, str);
         PatchUPKprogram = str;
-        cfg >> str;
+        //cfg >> str;
+        getline(cfg, str);
         DecompressProgram = str;
         return true;
     }

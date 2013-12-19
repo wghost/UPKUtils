@@ -2,7 +2,7 @@
 <wxsmith>
 	<object class="wxFrame" name="PatcherGUIFrame">
 		<title>XCOM UPK Patcher</title>
-		<icon>D:\CodeBlocksProj\UPKUtils\PatcherGUI\favicon.ico</icon>
+		<icon>favicon.ico</icon>
 		<id_arg>0</id_arg>
 		<handler function="OnClose" entry="EVT_CLOSE" />
 		<object class="wxBoxSizer" variable="BoxSizer1" member="no">
