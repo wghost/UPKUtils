@@ -16,30 +16,24 @@ int main(int argN, char* argV[])
         return 1;
     }
 
-    UPKUtils package;
-
-    if (!package.open(argV[1]))
-    {
-        cerr << "Can't open " << argV[1] << endl;
-        return 1;
-    }
+    UPKUtils package(argV[1]);
 
     string NameToFind = argV[2];
 
-    cout << "Object name: " << NameToFind << endl;
+    cout << "Name to find: " << NameToFind << endl;
 
-    int idx = package.FindObjectListEntryByName(NameToFind);
+    UObjectReference ObjRef = package.FindObject(NameToFind, true);
 
-    if (idx < 1)
+    if (ObjRef == 0)
     {
         cerr << "Can't find object entry by name " << NameToFind << endl;
         return 1;
     }
 
-    ObjectListEntry EntryToRead = package.GetObjectListEntryByIdx(idx);
+    FObjectExport ExportEntry = package.GetExportEntry((uint32_t)ObjRef);
 
-    cout << "Function size: " << hex << showbase << EntryToRead.ObjectFileSize << endl;
-    cout << "Function offset: " << hex << showbase << EntryToRead.DataOffset << endl;
+    cout << "Function size: " << ExportEntry.SerialSize << endl;
+    cout << "Function offset: " << FormatHEX(ExportEntry.SerialOffset) << endl;
 
     uint32_t newFunctionSize = 0;
     bool bUndoMove = false;
@@ -61,9 +55,9 @@ int main(int argN, char* argV[])
             else
                 ss >> dec >> newFunctionSize;
 
-            cout << "Resize function to: " << hex << showbase << newFunctionSize << endl;
+            cout << "Resize function to: " << newFunctionSize << endl;
 
-            if (newFunctionSize <= EntryToRead.ObjectFileSize)
+            if (newFunctionSize <= ExportEntry.SerialSize)
             {
                 cerr << "Can't expand function: existing function size is greater than specified value!" << endl;
                 return 1;
@@ -73,12 +67,12 @@ int main(int argN, char* argV[])
 
     if (!bUndoMove)
     {
-        package.MoveObject(idx, newFunctionSize);
+        package.MoveExportData((uint32_t)ObjRef, newFunctionSize);
         cout << "Object moved successfully!" << endl;
     }
     else
     {
-        package.UndoMoveObject(idx);
+        package.UndoMoveExportData((uint32_t)ObjRef);
         cout << "Object restored successfully!" << endl;
     }
 

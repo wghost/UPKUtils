@@ -22,14 +22,6 @@
 				<Option compiler="gcc" />
 				<Option parameters="XComStrategyGame.upk" />
 			</Target>
-			<Target title="RepairFunction">
-				<Option output="bin/RepairFunction" prefix_auto="1" extension_auto="1" />
-				<Option working_dir="bin/" />
-				<Option object_output="obj/RepairFunction" />
-				<Option type="1" />
-				<Option compiler="gcc" />
-				<Option parameters="XComStrategyGame.upk" />
-			</Target>
 			<Target title="PatchUPK">
 				<Option output="bin/PatchUPK" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin/" />
@@ -74,16 +66,53 @@
 		<Unit filename="PatchUPK.cpp">
 			<Option target="PatchUPK" />
 		</Unit>
-		<Unit filename="RepairFunction.cpp">
-			<Option target="RepairFunction" />
+		<Unit filename="UFlags.h" />
+		<Unit filename="UObject.cpp">
+			<Option target="FindObjectEntry" />
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
 		</Unit>
-		<Unit filename="UPKUtils.cpp" />
-		<Unit filename="UPKUtils.h" />
+		<Unit filename="UObject.h">
+			<Option target="FindObjectEntry" />
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+		</Unit>
+		<Unit filename="UObjectFactory.cpp">
+			<Option target="FindObjectEntry" />
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+		</Unit>
+		<Unit filename="UObjectFactory.h">
+			<Option target="FindObjectEntry" />
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+		</Unit>
+		<Unit filename="UPKInfo.cpp" />
+		<Unit filename="UPKInfo.h" />
+		<Unit filename="UPKUtils.cpp">
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+			<Option target="FindObjectEntry" />
+		</Unit>
+		<Unit filename="UPKUtils.h">
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+			<Option target="FindObjectEntry" />
+		</Unit>
 		<Extensions>
 			<code_completion />
 			<envvars />
 			<debugger />
 			<lib_finder disable_auto="1" />
+			<DoxyBlocks>
+				<comment_style block="0" line="0" />
+				<doxyfile_project />
+				<doxyfile_build />
+				<doxyfile_warnings />
+				<doxyfile_output />
+				<doxyfile_dot />
+				<general />
+			</DoxyBlocks>
 		</Extensions>
 	</Project>
 </CodeBlocks_project_file>

@@ -149,7 +149,7 @@ int main(int argN, char* argV[])
                     upkFileNameSaved = upkFileName;
                     string fullPath = upkPath + upkFileName;
                     cout << "Full path: " << fullPath << endl;
-                    if (!package.open(fullPath.c_str()))
+                    if (!package.Read(fullPath.c_str()))
                     {
                         cerr << "Can't open " << fullPath.c_str() << endl;
                         return 1;
@@ -162,7 +162,7 @@ int main(int argN, char* argV[])
                 backupString << "UPK_FILE=" << upkFileName << "\n\n";
                 break;
             case 4:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
@@ -179,7 +179,7 @@ int main(int argN, char* argV[])
                 functionFile = "";
                 break;
             case 5:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
@@ -191,13 +191,13 @@ int main(int argN, char* argV[])
                     cerr << "Incorrect function name!" << endl;
                     return 1;
                 }
-                functionIdx = package.FindObjectListEntryByName(functionName);
+                functionIdx = package.FindObject(functionName);
                 if (functionIdx <= 0)
                 {
                     cerr << "Can't find function " << functionName << " in package " << upkFileName << endl;
                     return 1;
                 }
-                offset = package.GetObjectListEntryByIdx(functionIdx).DataOffset;
+                offset = package.GetExportEntry(functionIdx).SerialOffset;
                 cout << "Function offset: " << hex << showbase << offset << dec << endl;
                 rel_offset = 0;
                 functionFile = "";
@@ -218,7 +218,7 @@ int main(int argN, char* argV[])
                 functionFile = "";
                 break;
             case 7:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
@@ -261,15 +261,15 @@ int main(int argN, char* argV[])
                         functionName = functionName.substr(0, functionName.find(".Function"));
                     }
                     cout << "Function name from file name: " << functionName << endl;
-                    functionIdx = package.FindObjectListEntryByName(functionName);
+                    functionIdx = package.FindObject(functionName);
                     if (functionIdx <= 0)
                     {
                         cerr << "Can't find function " << functionName << " in package " << upkFileName << endl;
                         return 1;
                     }
-                    offset = package.GetObjectListEntryByIdx(functionIdx).DataOffset;
+                    offset = package.GetExportEntry(functionIdx).SerialOffset;
                     cout << "Writing new data at " << hex << showbase << offset << dec << " in " << upkFileName << endl;
-                    if (!package.WriteObjectData(functionIdx, dataChunk, &backupDataChunk))
+                    if (!package.WriteExportData(functionIdx, dataChunk, &backupDataChunk))
                     {
                         cerr << "Error writing to upk file: " << upkFileName << endl;
                         return 1;
@@ -296,7 +296,7 @@ int main(int argN, char* argV[])
                 functionFile = "";
                 break;
             case 8:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
@@ -316,14 +316,14 @@ int main(int argN, char* argV[])
                     return 1;
                 }
                 cout << "Attempting to determine data offset by namelist name: " << namelistName << endl;
-                namelistIdx = package.FindNamelistEntryByName(namelistName);
+                namelistIdx = package.FindName(namelistName);
                 if (namelistIdx < 0)
                 {
                     cerr << "Can't find namelist name " << namelistName << " in package " << upkFileName << endl;
                     return 1;
                 }
                 cout << "Attempting to write new namelist name: " << newName << endl;
-                if (!package.WriteNamelistName(namelistIdx, newName))
+                if (!package.WriteNameTableName(namelistIdx, newName))
                 {
                     cerr << "Error writing to upk file: " << upkFileName << endl;
                     return 1;
@@ -335,7 +335,7 @@ int main(int argN, char* argV[])
                 functionFile = "";
                 break;
             case 9:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
@@ -351,40 +351,47 @@ int main(int argN, char* argV[])
                 functionSize = string2int(stringData.substr(colonPos + 1));
                 cout << "Function name: " << functionName << endl;
                 cout << "New function size: " << functionSize << endl;
-                functionIdx = package.FindObjectListEntryByName(functionName);
+                functionIdx = package.FindObject(functionName);
                 if (functionIdx <= 0)
                 {
                     cerr << "Can't find function " << functionName << " in package " << upkFileName << endl;
                     return 1;
                 }
-                if (uint32_t(functionSize) <= package.GetObjectListEntryByIdx(functionIdx).ObjectFileSize)
+                if (uint32_t(functionSize) < package.GetExportEntry(functionIdx).SerialSize)
                 {
                     cerr << "Existing function size is greater than specified value!" << endl;
                     return 1;
                 }
-                package.MoveObject(functionIdx, functionSize);
-                cout << "Function moved successfully!" << endl;
-                backupString << "EXPAND_UNDO=" << functionName << "\n\n";
-                offset = package.GetObjectListEntryByIdx(functionIdx).DataOffset;
+                if (uint32_t(functionSize) > package.GetExportEntry(functionIdx).SerialSize)
+                {
+                    package.MoveExportData(functionIdx, functionSize);
+                    cout << "Function moved successfully!" << endl;
+                    backupString << "EXPAND_UNDO=" << functionName << "\n\n";
+                }
+                else
+                {
+                    cout << "Function already has the same size!" << endl;
+                }
+                offset = package.GetExportEntry(functionIdx).SerialOffset;
                 rel_offset = 0;
                 functionName = "";
                 functionFile = "";
                 break;
             case 10:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
                 }
                 functionName = parser.GetStringValue();
                 cout << "Undo function expand: " << functionName << endl;
-                functionIdx = package.FindObjectListEntryByName(functionName);
+                functionIdx = package.FindObject(functionName);
                 if (functionIdx <= 0)
                 {
                     cerr << "Can't find function " << functionName << " in package " << upkFileName << endl;
                     return 1;
                 }
-                if (!package.UndoMoveObject(functionIdx))
+                if (!package.UndoMoveExportData(functionIdx))
                 {
                     cerr << "Can't undo function expand!" << endl;
                     return 1;
@@ -398,7 +405,7 @@ int main(int argN, char* argV[])
             case 11:
             case 12:
             case 13:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
@@ -459,7 +466,7 @@ int main(int argN, char* argV[])
             {
             case 0:
             case 3:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
@@ -501,7 +508,7 @@ int main(int argN, char* argV[])
                 parser.GetText();
                 break;
             case 1:
-                if (!package.good())
+                if (!package.IsLoaded())
                 {
                     cerr << "Package file not set!" << endl;
                     return 1;
