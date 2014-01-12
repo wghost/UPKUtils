@@ -16,6 +16,16 @@ int main(int argN, char* argV[])
 
     UPKUtils package(argV[1]);
 
+    UPKReadErrors err = package.GetError();
+
+    if (err != UPKReadErrors::NoErrors)
+    {
+        cerr << "Error reading package:\n" << FormatReadErrors(err);
+        if (package.IsCompressed())
+            cerr << "Compression flags:\n" << FormatCompressionFlags(package.GetCompressionFlags());
+        return 1;
+    }
+
     string NameToFind = argV[2];
 
     cout << "Name to find: " << NameToFind << endl;
@@ -27,12 +37,10 @@ int main(int argN, char* argV[])
         cerr << "Can't find object entry by name " << NameToFind << endl;
         return 1;
     }
-
     if (ObjRef > 0 && argN == 4 && string(argV[3]) == "/d")
     {
         package.SaveExportData((uint32_t)ObjRef);
     }
-
     if (ObjRef > 0)
     {
         cout << "Found Export Object:\n" << package.FormatExport(ObjRef, true);

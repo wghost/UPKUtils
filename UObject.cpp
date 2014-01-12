@@ -2,47 +2,61 @@
 
 #include <sstream>
 
-std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info)
+std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
-    ss << "UDefaultProperty:\n";
-    stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
-    while (info.IndexToName(NameIdx) != "None")
+    ss << "UDefaultPropertiesList:\n";
+    PropertyOffset = stream.tellg();
+    DefaultProperties.clear();
+    size_t maxOffset = info.GetExportEntry(OwnerRef).SerialOffset + info.GetExportEntry(OwnerRef).SerialSize;
+    UDefaultProperty Property;
+    do
     {
-        ss << "\tNameIdx: " << FormatHEX(NameIdx) << " -> " << info.IndexToName(NameIdx) << std::endl;
+        Property = UDefaultProperty{};
+        Property.SetOwner(OwnerRef);
+        ss << Property.Deserialize(stream, info, maxOffset);
+        DefaultProperties.push_back(Property);
+    } while (Property.GetName() != "None" && stream.good() && stream.tellg() < maxOffset);
+    PropertySize = (unsigned)stream.tellg() - (unsigned)PropertyOffset;
+    return ss.str();
+}
+
+std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, size_t maxOffset)
+{
+    std::ostringstream ss;
+    stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
+    Name = info.IndexToName(NameIdx);
+    ss << "\tNameIdx: " << FormatHEX(NameIdx) << " -> " << info.IndexToName(NameIdx) << std::endl;
+    if (Name != "None")
+    {
         stream.read(reinterpret_cast<char*>(&TypeIdx), sizeof(TypeIdx));
         ss << "\tTypeIdx: " << FormatHEX(TypeIdx) << " -> " << info.IndexToName(TypeIdx) << std::endl;
         stream.read(reinterpret_cast<char*>(&PropertySize), sizeof(PropertySize));
         ss << "\tPropertySize: " << FormatHEX(PropertySize) << std::endl;
+        /// prevent long loop, caused by bad data
+        if ((int)stream.tellg() + (int)PropertySize > (int)maxOffset)
+            return ss.str();
         stream.read(reinterpret_cast<char*>(&ArrayIdx), sizeof(ArrayIdx));
         ss << "\tArrayIdx: " << FormatHEX(ArrayIdx) << std::endl;
         Type = info.IndexToName(TypeIdx);
-        if (info.IndexToName(TypeIdx) == "BoolProperty")
+        if (Type == "BoolProperty")
         {
-            uint8_t bVal = 0;
-            stream.read(reinterpret_cast<char*>(&bVal), sizeof(bVal));
-            ss << "\tBoolean value: " << FormatHEX(bVal) << std::endl;
+            stream.read(reinterpret_cast<char*>(&BoolValue), sizeof(BoolValue));
+            ss << "\tBoolean value: " << FormatHEX(BoolValue) << std::endl;
         }
-        if (info.IndexToName(TypeIdx) == "StructProperty")
+        if (Type == "StructProperty" || Type == "ByteProperty")
         {
-            UNameIndex StructNameIdx;
-            stream.read(reinterpret_cast<char*>(&StructNameIdx), sizeof(StructNameIdx));
-            ss << "\tStructNameIdx: " << FormatHEX(StructNameIdx) << " -> " << info.IndexToName(StructNameIdx) << std::endl;
-            Type = info.IndexToName(StructNameIdx);
-        }
-        if (info.IndexToName(TypeIdx) == "ByteProperty")
-        {
-            UNameIndex EnumNameIdx;
-            stream.read(reinterpret_cast<char*>(&EnumNameIdx), sizeof(EnumNameIdx));
-            ss << "\tEnumNameIdx: " << FormatHEX(EnumNameIdx) << " -> " << info.IndexToName(EnumNameIdx) << std::endl;
+            stream.read(reinterpret_cast<char*>(&InnerNameIdx), sizeof(InnerNameIdx));
+            ss << "\tInnerNameIdx: " << FormatHEX(InnerNameIdx) << " -> " << info.IndexToName(InnerNameIdx) << std::endl;
         }
         if (PropertySize > 0)
         {
+            size_t offset = stream.tellg();
+            stream.read(InnerValue.data(), InnerValue.size());
+            stream.seekg(offset);
             ss << DeserializeValue(stream, info);
         }
-        stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
     }
-    ss << "End of property list: " << FormatHEX(NameIdx) << " -> " << info.IndexToName(NameIdx) << std::endl;
     return ss.str();
 }
 
@@ -88,12 +102,12 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
             ss << "\tString = " << str << std::endl;
         }
     }
-    /*else if (Type == "StructProperty")
-    {
-        UDefaultProperty StructProperty;
-        StructProperty.OwnerRef = 0; /// stub!!!
-        ss << std::endl << StructProperty.Deserialize(stream, info);
-    }*/
+    //else if (Type == "StructProperty")
+    //{
+    //    UDefaultProperty StructProperty;
+    //    StructProperty.OwnerRef = 0; /// stub!!!
+    //    ss << std::endl << StructProperty.Deserialize(stream, info);
+    //}
     else if (Type == "ArrayProperty")
     {
         uint32_t NumElements;
@@ -102,10 +116,10 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
         if ((NumElements > 0) && (PropertySize > 4))
         {
             std::string ArrayInnerType = FindArrayType(info.IndexToName(NameIdx), stream, info);
-            /*if (ArrayInnerType == "None")
-            {
-                ArrayInnerType = GuessArrayType(info.IndexToName(NameIdx));
-            }*/
+            //if (ArrayInnerType == "None")
+            //{
+            //    ArrayInnerType = GuessArrayType(info.IndexToName(NameIdx));
+            //}
             ss << "\tArrayInnerType = " << ArrayInnerType << std::endl;
             UDefaultProperty InnerProperty;
             InnerProperty.OwnerRef = 0; /// stub!!!
@@ -156,10 +170,8 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     }
     else
     {
-        std::vector<char> ArrayInner(PropertySize);
-        stream.read(ArrayInner.data(), ArrayInner.size());
-        //ss << "Unknown property:\n" << FormatHEX(ArrayInner) << std::endl;
-        ss << "Unknown property!\n";
+        stream.seekg(PropertySize, std::ios::cur);
+        ss << "\tUnknown property!\n";
     }
     return ss.str();
 }
@@ -239,14 +251,19 @@ std::string UField::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UObject::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UField:\n";
+    FieldOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&NextRef), sizeof(NextRef));
     ss << "\tNextRef = " << FormatHEX((uint32_t)NextRef) << " -> " << info.ObjRefToName(NextRef) << std::endl;
-    if (hasStruct == true)
+    if (IsStructure())
     {
         stream.read(reinterpret_cast<char*>(&ParentRef), sizeof(ParentRef));
         ss << "\tParentRef = " << FormatHEX((uint32_t)ParentRef) << " -> " << info.ObjRefToName(ParentRef) << std::endl;
     }
+    FieldSize = (unsigned)stream.tellg() - (unsigned)FieldOffset;
     return ss.str();
 }
 
@@ -254,7 +271,11 @@ std::string UStruct::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UField::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UStruct:\n";
+    StructOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&ScriptTextRef), sizeof(ScriptTextRef));
     ss << "\tScriptTextRef = " << FormatHEX((uint32_t)ScriptTextRef) << " -> " << info.ObjRefToName(ScriptTextRef) << std::endl;
     stream.read(reinterpret_cast<char*>(&FirstChildRef), sizeof(FirstChildRef));
@@ -269,9 +290,14 @@ std::string UStruct::Deserialize(std::istream& stream, UPKInfo& info)
     ss << "\tScriptMemorySize = " << FormatHEX(ScriptMemorySize) << std::endl;
     stream.read(reinterpret_cast<char*>(&ScriptSerialSize), sizeof(ScriptSerialSize));
     ss << "\tScriptSerialSize = " << FormatHEX(ScriptSerialSize) << std::endl;
+    /// prevent allocation errors, caused by bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     DataScript.resize(ScriptSerialSize);
+    ScriptOffset = stream.tellg();
     stream.read(DataScript.data(), DataScript.size());
     ss << "\tScript decompiler is not implemented!\n";
+    StructSize = (unsigned)stream.tellg() - (unsigned)StructOffset;
     return ss.str();
 }
 
@@ -279,11 +305,16 @@ std::string UFunction::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UStruct::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UFunction:\n";
+    FunctionOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&NativeToken), sizeof(NativeToken));
     ss << "\tNativeToken = " << FormatHEX(NativeToken) << std::endl;
     stream.read(reinterpret_cast<char*>(&OperPrecedence), sizeof(OperPrecedence));
     ss << "\tOperPrecedence = " << FormatHEX(OperPrecedence) << std::endl;
+    FlagsOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&FunctionFlags), sizeof(FunctionFlags));
     ss << "\tFunctionFlags = " << FormatHEX(FunctionFlags) << std::endl;
     ss << FormatFunctionFlags(FunctionFlags);
@@ -294,6 +325,7 @@ std::string UFunction::Deserialize(std::istream& stream, UPKInfo& info)
     }
     stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
     ss << "\tNameIdx = " << FormatHEX(NameIdx) << " -> " << info.IndexToName(NameIdx) << std::endl;
+    FunctionSize = (unsigned)stream.tellg() - (unsigned)FunctionOffset;
     return ss.str();
 }
 
@@ -301,11 +333,17 @@ std::string UScriptStruct::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UStruct::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UScriptStruct:\n";
+    ScriptStructOffset = stream.tellg();
+    FlagsOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&StructFlags), sizeof(StructFlags));
     ss << "\tStructFlags = " << FormatHEX(StructFlags) << std::endl;
     ss << FormatStructFlags(StructFlags);
     ss << DefaultProperties.Deserialize(stream, info);
+    ScriptStructSize = (unsigned)stream.tellg() - (unsigned)ScriptStructOffset;
     return ss.str();
 }
 
@@ -313,11 +351,16 @@ std::string UState::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UStruct::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UState:\n";
+    StateOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&ProbeMask), sizeof(ProbeMask));
     ss << "\tProbeMask = " << FormatHEX(ProbeMask) << std::endl;
     stream.read(reinterpret_cast<char*>(&LabelTableOffset), sizeof(LabelTableOffset));
     ss << "\tLabelTableOffset = " << FormatHEX(LabelTableOffset) << std::endl;
+    FlagsOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&StateFlags), sizeof(StateFlags));
     ss << "\tStateFlags = " << FormatHEX(StateFlags) << std::endl;
     ss << FormatStateFlags(StateFlags);
@@ -333,6 +376,7 @@ std::string UState::Deserialize(std::istream& stream, UPKInfo& info)
         ss << "\t\t" << FormatHEX((uint32_t)MapElement.second) << " -> " << info.ObjRefToName(MapElement.second) << std::endl;
         StateMap.push_back(MapElement);
     }
+    StateSize = (unsigned)stream.tellg() - (unsigned)StateOffset;
     return ss.str();
 }
 
@@ -340,7 +384,11 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UState::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UClass:\n";
+    FlagsOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&ClassFlags), sizeof(ClassFlags));
     ss << "\tClassFlags = " << FormatHEX(ClassFlags) << std::endl;
     ss << FormatClassFlags(ClassFlags);
@@ -447,6 +495,9 @@ std::string UConst::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UField::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UConst:\n";
     stream.read(reinterpret_cast<char*>(&ValueLength), sizeof(ValueLength));
     ss << "\tValueLength = " << FormatHEX(ValueLength) << std::endl;
@@ -462,6 +513,9 @@ std::string UEnum::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UField::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UEnum:\n";
     stream.read(reinterpret_cast<char*>(&NumNames), sizeof(NumNames));
     ss << "\tNumNames = " << FormatHEX(NumNames) << " (" << NumNames << ")" << std::endl;
@@ -481,6 +535,9 @@ std::string UProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UField::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UProperty:\n";
     uint32_t tmpVal;
     stream.read(reinterpret_cast<char*>(&tmpVal), sizeof(tmpVal));
@@ -488,6 +545,7 @@ std::string UProperty::Deserialize(std::istream& stream, UPKInfo& info)
     ElementSize = tmpVal >> 16;
     ss << "\tArrayDim = " << FormatHEX(ArrayDim) << " (" << ArrayDim << ")" << std::endl;
     ss << "\tElementSize = " << FormatHEX(ElementSize) << " (" << ElementSize << ")" << std::endl;
+    FlagsOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&PropertyFlagsL), sizeof(PropertyFlagsL));
     ss << "\tPropertyFlagsL = " << FormatHEX(PropertyFlagsL) << std::endl;
     ss << FormatPropertyFlagsL(PropertyFlagsL);
@@ -510,6 +568,9 @@ std::string UByteProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UByteProperty:\n";
     stream.read(reinterpret_cast<char*>(&EnumObjRef), sizeof(EnumObjRef));
     ss << "\tEnumObjRef = " << FormatHEX((uint32_t)EnumObjRef) << " -> " << info.ObjRefToName(EnumObjRef) << std::endl;
@@ -520,6 +581,9 @@ std::string UObjectProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UObjectProperty:\n";
     stream.read(reinterpret_cast<char*>(&OtherObjRef), sizeof(OtherObjRef));
     ss << "\tOtherObjRef = " << FormatHEX((uint32_t)OtherObjRef) << " -> " << info.ObjRefToName(OtherObjRef) << std::endl;
@@ -530,6 +594,9 @@ std::string UClassProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UObjectProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UClassProperty:\n";
     stream.read(reinterpret_cast<char*>(&ClassObjRef), sizeof(ClassObjRef));
     ss << "\tClassObjRef = " << FormatHEX((uint32_t)ClassObjRef) << " -> " << info.ObjRefToName(ClassObjRef) << std::endl;
@@ -540,6 +607,9 @@ std::string UStructProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UStructProperty:\n";
     stream.read(reinterpret_cast<char*>(&StructObjRef), sizeof(StructObjRef));
     ss << "\tStructObjRef = " << FormatHEX((uint32_t)StructObjRef) << " -> " << info.ObjRefToName(StructObjRef) << std::endl;
@@ -550,6 +620,9 @@ std::string UFixedArrayProperty::Deserialize(std::istream& stream, UPKInfo& info
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UFixedArrayProperty:\n";
     stream.read(reinterpret_cast<char*>(&InnerObjRef), sizeof(InnerObjRef));
     ss << "\tInnerObjRef = " << FormatHEX((uint32_t)InnerObjRef) << " -> " << info.ObjRefToName(InnerObjRef) << std::endl;
@@ -562,6 +635,9 @@ std::string UArrayProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UArrayProperty:\n";
     stream.read(reinterpret_cast<char*>(&InnerObjRef), sizeof(InnerObjRef));
     ss << "\tInnerObjRef = " << FormatHEX((uint32_t)InnerObjRef) << " -> " << info.ObjRefToName(InnerObjRef) << std::endl;
@@ -572,6 +648,9 @@ std::string UDelegateProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UDelegateProperty:\n";
     stream.read(reinterpret_cast<char*>(&FunctionObjRef), sizeof(FunctionObjRef));
     ss << "\tFunctionObjRef = " << FormatHEX((uint32_t)FunctionObjRef) << " -> " << info.ObjRefToName(FunctionObjRef) << std::endl;
@@ -584,6 +663,9 @@ std::string UInterfaceProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UInterfaceProperty:\n";
     stream.read(reinterpret_cast<char*>(&InterfaceObjRef), sizeof(InterfaceObjRef));
     ss << "\tInterfaceObjRef = " << FormatHEX((uint32_t)InterfaceObjRef) << " -> " << info.ObjRefToName(InterfaceObjRef) << std::endl;
@@ -594,6 +676,9 @@ std::string UMapProperty::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UProperty::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     ss << "UMapProperty:\n";
     stream.read(reinterpret_cast<char*>(&KeyObjRef), sizeof(KeyObjRef));
     ss << "\tKeyObjRef = " << FormatHEX((uint32_t)KeyObjRef) << " -> " << info.ObjRefToName(KeyObjRef) << std::endl;

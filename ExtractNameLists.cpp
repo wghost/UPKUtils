@@ -32,6 +32,18 @@ int main(int argN, char* argV[])
 
     UPKInfo PackageInfo(package);
 
+    UPKReadErrors err = PackageInfo.GetError();
+
+    if (err != UPKReadErrors::NoErrors)
+    {
+        cerr << "Error reading package:\n" << FormatReadErrors(err);
+        if (PackageInfo.IsCompressed())
+        {
+            cout << PackageInfo.FormatSummary();
+        }
+        return 1;
+    }
+
     cout << PackageInfo.FormatSummary() << std::endl
          << PackageInfo.FormatNames(verbose) << std::endl
          << PackageInfo.FormatImports(verbose) << std::endl

@@ -5,44 +5,49 @@
 #include <fstream>
 #include <vector>
 
-std::string hex2str(char *data, size_t dataSize);
+std::string GetFilename(std::string str);
+std::string MakeTextBlock(char *data, size_t dataSize);
+std::string GetStringValue(const std::string& TextBuffer);
+std::vector<char> GetDataChunk(const std::string& TextBuffer);
+int GetIntValue(const std::string& TextBuffer);
+unsigned GetUnsignedValue(const std::string& TextBuffer);
+float GetFloatValue(const std::string& TextBuffer);
 
 class ModParser
 {
 public:
-    ModParser(): commentBegin(0), commentEnd(0), commentLine(0), isKey(false), isSection(false) {}
+    ModParser(): commentBegin(0), commentEnd(0), commentLine(0), isKey(false), isSection(false), Name(""), Value(""), Index(-1) {}
     ~ModParser() {}
-
+    /// keys, sections and comments
     void AddKeyName(std::string name);
     void AddSectionName(std::string name);
     void SetKeyNames(std::vector<std::string> names);
     void SetSectionNames(std::vector<std::string> names);
+    void ClearKeyNames() { keyNames.clear(); }
+    void ClearSectionNames() { sectionNames.clear(); }
     void SetCommentMarkers(char begMarker, char endMarker, char lineMarker);
-    std::string GetKeyName(int idx);
-    std::string GetSectionName(int idx);
-
+    /// init
     bool OpenModFile(const char* name);
-
-    int FindNext(); // find next key or section, set read pointer at the beginning of the line
-
-    bool IsKey() { return isKey; }
-    bool IsSection() { return isSection; }
-
-    std::string GetText();
+    /// find next key or section, set read pointer at the beginning of the line
+    int FindNext();
+    /// Getters
+    std::string GetTextValue();
     std::vector<char> GetDataChunk();
     std::string GetStringValue();
     int GetIntValue();
     float GetFloatValue();
-
+    /// Get key/section Name and text Value
+    std::string GetName() { return Name; }
+    std::string GetValue() { return Value; }
 protected:
     std::string GetLine();
-
+    std::string GetText();
     int FindKey(std::string str);
     int FindSection(std::string str);
-
     int FindKeyNameIdx(std::string name);
     int FindSectionNameIdx(std::string name);
-
+    bool IsKey() { return isKey; }
+    bool IsSection() { return isSection; }
 private:
     std::ifstream modFile;
     std::vector<std::string> keyNames;
@@ -52,6 +57,9 @@ private:
     char commentLine;
     bool isKey;
     bool isSection;
+    std::string Name;
+    std::string Value;
+    int Index;
 };
 
 #endif // MODPARSER_H

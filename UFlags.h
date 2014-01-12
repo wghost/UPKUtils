@@ -26,8 +26,8 @@ enum class UPackageFlags: uint32_t
 enum class UCompressionFlags: uint32_t
 {
     ZLIB = 0x00000001,
-    ZLO = 0x00000002,
-    ZLX = 0x00000004
+    LZO = 0x00000002,
+    LZX = 0x00000004
 };
 
 enum class UObjectFlagsL: uint32_t

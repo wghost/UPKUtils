@@ -50,6 +50,8 @@ class PatcherGUIFrame: public wxFrame
         bool LoadCFG();
         bool SaveCFG();
 
+        bool NeedDecompression(wxString filename);
+
         //(*Handlers(PatcherGUIFrame)
         void OnSaveModFile(wxCommandEvent& event);
         void OnSaveModFileAs(wxCommandEvent& event);

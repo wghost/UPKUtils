@@ -1,31 +1,81 @@
 #include "UPKInfo.h"
 
-#include <cassert>
 #include <cstdio>
 #include <sstream>
+#include <cstring>
 
-UPKInfo::UPKInfo()
-{
-}
-
-UPKInfo::~UPKInfo()
-{
-}
-
-UPKInfo::UPKInfo(std::istream& stream)
+UPKInfo::UPKInfo(std::istream& stream): Summary(), NoneIdx(0), ReadError(UPKReadErrors::NoErrors), Compressed(false), CompressedChunk(false)
 {
     Read(stream);
 }
 
-void UPKInfo::Read(std::istream& stream)
+bool UPKInfo::ReadCompressedHeader(std::istream& stream)
 {
-    assert(stream.good());
+    if (!stream.good())
+    {
+        ReadError = UPKReadErrors::FileError;
+        return false;
+    }
+    stream.seekg(0, std::ios::end);
+    size_t Size = stream.tellg();
+    stream.seekg(0);
+    stream.read(reinterpret_cast<char*>(&CompressedHeader.Signature), 4);
+    if (CompressedHeader.Signature != 0x9E2A83C1)
+    {
+        ReadError = UPKReadErrors::BadSignature;
+        return false;
+    }
+    stream.read(reinterpret_cast<char*>(&CompressedHeader.BlockSize), 4);
+    stream.read(reinterpret_cast<char*>(&CompressedHeader.CompressedSize), 4);
+    stream.read(reinterpret_cast<char*>(&CompressedHeader.UncompressedSize), 4);
+    CompressedHeader.NumBlocks = (CompressedHeader.UncompressedSize + CompressedHeader.BlockSize - 1) / CompressedHeader.BlockSize; // Gildor
+    uint32_t CompHeadSize = 16 + CompressedHeader.NumBlocks * 8;
+    Size -= CompHeadSize; /// actual compressed file size
+    if (CompressedHeader.CompressedSize != Size ||
+        CompressedHeader.UncompressedSize < Size ||
+        CompressedHeader.UncompressedSize < CompressedHeader.CompressedSize)
+    {
+        ReadError = UPKReadErrors::BadVersion;
+        return false;
+    }
+    CompressedHeader.Blocks.clear();
+    for (unsigned i = 0; i < CompressedHeader.NumBlocks; ++i)
+    {
+        FCompressedChunkBlock Block;
+        stream.read(reinterpret_cast<char*>(&Block.CompressedSize), 4);
+        stream.read(reinterpret_cast<char*>(&Block.UncompressedSize), 4);
+        CompressedHeader.Blocks.push_back(Block);
+    }
+    Compressed = true;
+    CompressedChunk = true;
+    ReadError = UPKReadErrors::IsCompressed;
+    return false;
+}
+
+bool UPKInfo::Read(std::istream& stream)
+{
+    CompressedHeader = FCompressedChunkHeader{};
+    if (!stream.good())
+    {
+        ReadError = UPKReadErrors::FileError;
+        return false;
+    }
     stream.seekg(0);
     stream.read(reinterpret_cast<char*>(&Summary.Signature), 4);
+    if (Summary.Signature != 0x9E2A83C1)
+    {
+        ReadError = UPKReadErrors::BadSignature;
+        return false;
+    }
     int32_t tmpVer;
     stream.read(reinterpret_cast<char*>(&tmpVer), 4);
     Summary.Version = tmpVer % (1 << 16);
     Summary.LicenseeVersion = tmpVer >> 16;
+    if (Summary.Version != 845)
+    {
+        ReadError = UPKReadErrors::BadVersion;
+        return ReadCompressedHeader(stream);
+    }
     Summary.HeaderSizeOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&Summary.HeaderSize), 4);
     stream.read(reinterpret_cast<char*>(&Summary.FolderNameLength), 4);
@@ -65,11 +115,28 @@ void UPKInfo::Read(std::istream& stream)
     stream.read(reinterpret_cast<char*>(&Summary.CookerVersion), 4);
     stream.read(reinterpret_cast<char*>(&Summary.CompressionFlags), 4);
     stream.read(reinterpret_cast<char*>(&Summary.NumCompressedChunks), 4);
-    if (Summary.NumCompressedChunks > 0)
+    Compressed = ((Summary.NumCompressedChunks > 0) || (Summary.CompressionFlags != 0));
+    Summary.CompressedChunks.clear();
+    for (unsigned i = 0; i < Summary.NumCompressedChunks; ++i)
     {
-        Summary.CompressedChunksBuf.clear();
-        Summary.CompressedChunksBuf.resize(Summary.NameOffset - stream.tellg());
-        stream.read(Summary.CompressedChunksBuf.data(), Summary.CompressedChunksBuf.size());
+        FCompressedChunk CompressedChunk;
+        stream.read(reinterpret_cast<char*>(&CompressedChunk.UncompressedOffset), 4);
+        stream.read(reinterpret_cast<char*>(&CompressedChunk.UncompressedSize), 4);
+        stream.read(reinterpret_cast<char*>(&CompressedChunk.CompressedOffset), 4);
+        stream.read(reinterpret_cast<char*>(&CompressedChunk.CompressedSize), 4);
+        Summary.CompressedChunks.push_back(CompressedChunk);
+    }
+    /*std::cout << "offset = " << FormatHEX((uint32_t)stream.tellg()) << "\n";
+    while (stream.tellg() < Summary.NameOffset)
+    {
+        uint32_t tmp;
+        stream.read(reinterpret_cast<char*>(&tmp), 4);
+        std::cout << "unknown = " << FormatHEX(tmp) << " (" << tmp << ")\n";
+    }*/
+    if (Compressed == true)
+    {
+        ReadError = UPKReadErrors::IsCompressed;
+        return false;
     }
     NameTable.clear();
     stream.seekg(Summary.NameOffset);
@@ -90,10 +157,12 @@ void UPKInfo::Read(std::istream& stream)
         stream.read(reinterpret_cast<char*>(&EntryToRead.NameFlagsH), 4);
         EntryToRead.EntrySize = (unsigned)stream.tellg() - EntryToRead.EntryOffset;
         NameTable.push_back(EntryToRead);
+        if (EntryToRead.Name == "None")
+            NoneIdx = i;
     }
     ImportTable.clear();
     stream.seekg(Summary.ImportOffset);
-    ImportTable.push_back(FObjectImport()); /// null object
+    ImportTable.push_back(FObjectImport()); /// null object (default zero-initialization)
     for (unsigned i = 0; i < Summary.ImportCount; ++i)
     {
         FObjectImport EntryToRead;
@@ -139,6 +208,11 @@ void UPKInfo::Read(std::istream& stream)
     {
         stream.read(DependsBuf.data(), DependsBuf.size());
     }
+    if (!stream.good())
+    {
+        ReadError = UPKReadErrors::FileError;
+        return false;
+    }
     /// resolve names
     for (unsigned i = 1; i < ImportTable.size(); ++i)
     {
@@ -160,30 +234,31 @@ void UPKInfo::Read(std::istream& stream)
             ExportTable[i].Type = "Class";
         }
     }
+    return true;
 }
 
 std::string UPKInfo::IndexToName(UNameIndex idx)
 {
     std::ostringstream ss;
-    ss << NameTable[idx.NameTableIdx].Name;
-    if (idx.Numeric > 0)
+    ss << GetNameEntry(idx.NameTableIdx).Name;
+    if (idx.Numeric > 0 && ss.str() != "None")
         ss << "_" << int(idx.Numeric - 1);
     return ss.str();
 }
 
 std::string UPKInfo::ObjRefToName(UObjectReference ObjRef)
 {
-    if (ObjRef == 0)
+    if (ObjRef == 0 || -ObjRef >= (int)ImportTable.size() || ObjRef >= (int)ExportTable.size())
     {
         return "";
     }
     else if (ObjRef > 0)
     {
-        return IndexToName(ExportTable[ObjRef].NameIdx);
+        return IndexToName(GetExportEntry(ObjRef).NameIdx);
     }
     else if (ObjRef < 0)
     {
-        return IndexToName(ImportTable[-ObjRef].NameIdx);
+        return IndexToName(GetImportEntry(-ObjRef).NameIdx);
     }
     return "";
 }
@@ -209,11 +284,11 @@ UObjectReference UPKInfo::GetOwnerRef(UObjectReference ObjRef)
     }
     else if (ObjRef > 0)
     {
-        return ExportTable[ObjRef].OwnerRef;
+        return GetExportEntry(ObjRef).OwnerRef;
     }
     else if (ObjRef < 0)
     {
-        return ImportTable[-ObjRef].OwnerRef;
+        return GetImportEntry(-ObjRef).OwnerRef;
     }
     return 0;
 }
@@ -249,13 +324,51 @@ UObjectReference UPKInfo::FindObject(std::string FullName, bool isExport)
     return 0;
 }
 
-FObjectExport UPKInfo::GetExportEntry(uint32_t idx)
+const FObjectExport& UPKInfo::GetExportEntry(uint32_t idx)
 {
-    return ExportTable[idx];
+    if (idx < ExportTable.size())
+        return ExportTable[idx];
+    else
+        return ExportTable[0];
+}
+
+const FObjectImport& UPKInfo::GetImportEntry(uint32_t idx)
+{
+    if (idx < ImportTable.size())
+        return ImportTable[idx];
+    else
+        return ImportTable[0];
+}
+
+const FNameEntry& UPKInfo::GetNameEntry(uint32_t idx)
+{
+    if (idx < NameTable.size())
+        return NameTable[idx];
+    else
+        return NameTable[NoneIdx];
+}
+
+std::string UPKInfo::FormatCompressedHeader()
+{
+    std::ostringstream ss;
+    ss << "Signature: " << FormatHEX(CompressedHeader.Signature) << std::endl
+       << "BlockSize: " << CompressedHeader.BlockSize << std::endl
+       << "CompressedSize: " << CompressedHeader.CompressedSize << std::endl
+       << "UncompressedSize: " << CompressedHeader.UncompressedSize << std::endl
+       << "NumBlocks: " << CompressedHeader.NumBlocks << std::endl;
+    for (unsigned i = 0; i < CompressedHeader.Blocks.size(); ++i)
+    {
+        ss << "Blocks[" << i << "]:" << std::endl
+           << "\tCompressedSize: " << CompressedHeader.Blocks[i].CompressedSize << std::endl
+           << "\tUncompressedSize: " << CompressedHeader.Blocks[i].UncompressedSize << std::endl;
+    }
+    return ss.str();
 }
 
 std::string UPKInfo::FormatSummary()
 {
+    if (CompressedChunk == true)
+        return FormatCompressedHeader();
     std::ostringstream ss;
     ss << "Signature: " << FormatHEX(Summary.Signature) << std::endl
        << "Version: " << Summary.Version << std::endl
@@ -279,7 +392,7 @@ std::string UPKInfo::FormatSummary()
        << "GenerationsCount: " << Summary.GenerationsCount << std::endl;
     for (unsigned i = 0; i < Summary.Generations.size(); ++i)
     {
-        ss << "Generation[" << i << "]:" << std::endl
+        ss << "Generations[" << i << "]:" << std::endl
            << "\tExportCount: " << Summary.Generations[i].ExportCount << std::endl
            << "\tNameCount: " << Summary.Generations[i].NameCount << std::endl
            << "\tNetObjectCount: " << Summary.Generations[i].NetObjectCount << std::endl;
@@ -289,6 +402,14 @@ std::string UPKInfo::FormatSummary()
        << "CompressionFlags: " << FormatHEX(Summary.CompressionFlags) << std::endl
        << FormatCompressionFlags(Summary.CompressionFlags)
        << "NumCompressedChunks: " << Summary.NumCompressedChunks << std::endl;
+    for (unsigned i = 0; i < Summary.CompressedChunks.size(); ++i)
+    {
+        ss << "CompressedChunks[" << i << "]:" << std::endl
+           << "\tUncompressedOffset: " << FormatHEX(Summary.CompressedChunks[i].UncompressedOffset) << " (" << Summary.CompressedChunks[i].UncompressedOffset << ")" << std::endl
+           << "\tUncompressedSize: " << Summary.CompressedChunks[i].UncompressedSize << std::endl
+           << "\tCompressedOffset: " << FormatHEX(Summary.CompressedChunks[i].CompressedOffset) << "(" << Summary.CompressedChunks[i].CompressedOffset << ")" << std::endl
+           << "\tCompressedSize: " << Summary.CompressedChunks[i].CompressedSize << std::endl;
+    }
     return ss.str();
 }
 
@@ -328,12 +449,13 @@ std::string UPKInfo::FormatExports(bool verbose)
 std::string UPKInfo::FormatName(uint32_t idx, bool verbose)
 {
     std::ostringstream ss;
+    FNameEntry Entry = GetNameEntry(idx);
     ss << FormatHEX((uint32_t)idx) << " (" << idx << "): "
-       << NameTable[idx].Name << std::endl;
+       << Entry.Name << std::endl;
     if (verbose == true)
     {
-        ss << "\tNameFlagsL: " << FormatHEX(NameTable[idx].NameFlagsL) << std::endl
-           << "\tNameFlagsH: " << FormatHEX(NameTable[idx].NameFlagsH) << std::endl;
+        ss << "\tNameFlagsL: " << FormatHEX(Entry.NameFlagsL) << std::endl
+           << "\tNameFlagsH: " << FormatHEX(Entry.NameFlagsH) << std::endl;
     }
     return ss.str();
 }
@@ -341,15 +463,16 @@ std::string UPKInfo::FormatName(uint32_t idx, bool verbose)
 std::string UPKInfo::FormatImport(uint32_t idx, bool verbose)
 {
     std::ostringstream ss;
+    FObjectImport Entry = GetImportEntry(idx);
     ss << FormatHEX((uint32_t)(-idx)) << " (" << (-(int)idx) << "): "
-       << ImportTable[idx].Type << "\'"
-       << ImportTable[idx].FullName << "\'" << std::endl;
+       << Entry.Type << "\'"
+       << Entry.FullName << "\'" << std::endl;
     if (verbose == true)
     {
-        ss << "\tPackageIdx: " << FormatHEX(ImportTable[idx].PackageIdx) << " -> " << IndexToName(ImportTable[idx].PackageIdx) << std::endl
-           << "\tTypeIdx: " << FormatHEX(ImportTable[idx].TypeIdx) << " -> " << IndexToName(ImportTable[idx].TypeIdx) << std::endl
-           << "\tOwnerRef: " << FormatHEX((uint32_t)ImportTable[idx].OwnerRef) << " -> " << ObjRefToName(ImportTable[idx].OwnerRef) << std::endl
-           << "\tNameIdx: " << FormatHEX(ImportTable[idx].NameIdx) << " -> " << IndexToName(ImportTable[idx].NameIdx) << std::endl;
+        ss << "\tPackageIdx: " << FormatHEX(Entry.PackageIdx) << " -> " << IndexToName(Entry.PackageIdx) << std::endl
+           << "\tTypeIdx: " << FormatHEX(Entry.TypeIdx) << " -> " << IndexToName(Entry.TypeIdx) << std::endl
+           << "\tOwnerRef: " << FormatHEX((uint32_t)Entry.OwnerRef) << " -> " << ObjRefToName(Entry.OwnerRef) << std::endl
+           << "\tNameIdx: " << FormatHEX(Entry.NameIdx) << " -> " << IndexToName(Entry.NameIdx) << std::endl;
     }
     return ss.str();
 }
@@ -357,30 +480,31 @@ std::string UPKInfo::FormatImport(uint32_t idx, bool verbose)
 std::string UPKInfo::FormatExport(uint32_t idx, bool verbose)
 {
     std::ostringstream ss;
+    FObjectExport Entry = GetExportEntry(idx);
     ss << FormatHEX((uint32_t)idx) << " (" << idx << "): "
-       << ExportTable[idx].Type << "\'"
-       << ExportTable[idx].FullName << "\'" << std::endl;
+       << Entry.Type << "\'"
+       << Entry.FullName << "\'" << std::endl;
     if (verbose == true)
     {
-        ss << "\tTypeRef: " << FormatHEX((uint32_t)ExportTable[idx].TypeRef) << " -> " << ObjRefToName(ExportTable[idx].TypeRef) << std::endl
-           << "\tParentClassRef: " << FormatHEX((uint32_t)ExportTable[idx].ParentClassRef) << " -> " << ObjRefToName(ExportTable[idx].ParentClassRef) << std::endl
-           << "\tOwnerRef: " << FormatHEX((uint32_t)ExportTable[idx].OwnerRef) << " -> " << ObjRefToName(ExportTable[idx].OwnerRef) << std::endl
-           << "\tNameIdx: " << FormatHEX(ExportTable[idx].NameIdx) << " -> " << IndexToName(ExportTable[idx].NameIdx) << std::endl
-           << "\tArchetypeRef: " << FormatHEX((uint32_t)ExportTable[idx].ArchetypeRef) << " -> " << ObjRefToName(ExportTable[idx].ArchetypeRef) << std::endl
-           << "\tObjectFlagsH: " << FormatHEX(ExportTable[idx].ObjectFlagsH) << std::endl
-           << FormatObjectFlagsH(ExportTable[idx].ObjectFlagsH)
-           << "\tObjectFlagsL: " << FormatHEX(ExportTable[idx].ObjectFlagsL) << std::endl
-           << FormatObjectFlagsL(ExportTable[idx].ObjectFlagsL)
-           << "\tSerialSize: " << FormatHEX(ExportTable[idx].SerialSize) << " (" << ExportTable[idx].SerialSize << ")" << std::endl
-           << "\tSerialOffset: " << FormatHEX(ExportTable[idx].SerialOffset) << std::endl
-           << "\tExportFlags: " << FormatHEX(ExportTable[idx].ExportFlags) << std::endl
-           << FormatExportFlags(ExportTable[idx].ExportFlags)
-           << "\tNetObjectCount: " << ExportTable[idx].NetObjectCount << std::endl
-           << "\tGUID: " << FormatHEX(ExportTable[idx].GUID) << std::endl
-           << "\tUnknown1: " << FormatHEX(ExportTable[idx].Unknown1) << std::endl;
-        for (unsigned i = 0; i < ExportTable[idx].NetObjects.size(); ++i)
+        ss << "\tTypeRef: " << FormatHEX((uint32_t)Entry.TypeRef) << " -> " << ObjRefToName(Entry.TypeRef) << std::endl
+           << "\tParentClassRef: " << FormatHEX((uint32_t)Entry.ParentClassRef) << " -> " << ObjRefToName(Entry.ParentClassRef) << std::endl
+           << "\tOwnerRef: " << FormatHEX((uint32_t)Entry.OwnerRef) << " -> " << ObjRefToName(Entry.OwnerRef) << std::endl
+           << "\tNameIdx: " << FormatHEX(Entry.NameIdx) << " -> " << IndexToName(Entry.NameIdx) << std::endl
+           << "\tArchetypeRef: " << FormatHEX((uint32_t)Entry.ArchetypeRef) << " -> " << ObjRefToName(Entry.ArchetypeRef) << std::endl
+           << "\tObjectFlagsH: " << FormatHEX(Entry.ObjectFlagsH) << std::endl
+           << FormatObjectFlagsH(Entry.ObjectFlagsH)
+           << "\tObjectFlagsL: " << FormatHEX(Entry.ObjectFlagsL) << std::endl
+           << FormatObjectFlagsL(Entry.ObjectFlagsL)
+           << "\tSerialSize: " << FormatHEX(Entry.SerialSize) << " (" << Entry.SerialSize << ")" << std::endl
+           << "\tSerialOffset: " << FormatHEX(Entry.SerialOffset) << std::endl
+           << "\tExportFlags: " << FormatHEX(Entry.ExportFlags) << std::endl
+           << FormatExportFlags(Entry.ExportFlags)
+           << "\tNetObjectCount: " << Entry.NetObjectCount << std::endl
+           << "\tGUID: " << FormatHEX(Entry.GUID) << std::endl
+           << "\tUnknown1: " << FormatHEX(Entry.Unknown1) << std::endl;
+        for (unsigned i = 0; i < Entry.NetObjects.size(); ++i)
         {
-            ss << "\tNetObjects[" << i << "]: " << FormatHEX(ExportTable[idx].NetObjects[i]) << std::endl;
+            ss << "\tNetObjects[" << i << "]: " << FormatHEX(Entry.NetObjects[i]) << std::endl;
         }
     }
     return ss.str();
@@ -537,13 +661,13 @@ std::string FormatCompressionFlags(uint32_t flags)
     {
         ss << "\t" << FormatHEX((uint32_t)UCompressionFlags::ZLIB) << ": ZLIB" << std::endl;
     }
-    if (flags & (uint32_t)UCompressionFlags::ZLO)
+    if (flags & (uint32_t)UCompressionFlags::LZO)
     {
-        ss << "\t" << FormatHEX((uint32_t)UCompressionFlags::ZLO) << ": ZLO" << std::endl;
+        ss << "\t" << FormatHEX((uint32_t)UCompressionFlags::LZO) << ": LZO" << std::endl;
     }
-    if (flags & (uint32_t)UCompressionFlags::ZLX)
+    if (flags & (uint32_t)UCompressionFlags::LZX)
     {
-        ss << "\t" << FormatHEX((uint32_t)UCompressionFlags::ZLX) << ": ZLX" << std::endl;
+        ss << "\t" << FormatHEX((uint32_t)UCompressionFlags::LZX) << ": LZX" << std::endl;
     }
     return ss.str();
 }
@@ -1164,5 +1288,28 @@ std::string FormatPropertyFlagsH(uint32_t flags)
         ss << "\t\t" << FormatHEX((uint32_t)UPropertyFlagsH::CrossLevelActive) << ": CrossLevelActive" << std::endl;
     }
 
+    return ss.str();
+}
+
+std::string FormatReadErrors(UPKReadErrors ReadError)
+{
+    std::ostringstream ss;
+    switch(ReadError)
+    {
+    case UPKReadErrors::FileError:
+        ss << "Bad package file!\n";
+        break;
+    case UPKReadErrors::BadSignature:
+        ss << "Bad package signature!\n";
+        break;
+    case UPKReadErrors::BadVersion:
+        ss << "Bad package version!\n";
+        break;
+    case UPKReadErrors::IsCompressed:
+        ss << "Package is compressed, must decompress first!\n";
+        break;
+    default:
+        break;
+    }
     return ss.str();
 }

@@ -2,10 +2,11 @@
 
 #include <iostream>
 #include <sstream>
+#include <cstring>
 
 const char chLookup[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
-std::string hex2str(char *data, size_t dataSize)
+std::string MakeTextBlock(char *data, size_t dataSize)
 {
     std::string out = "";
     for (unsigned i = 0; i < dataSize; ++i)
@@ -23,71 +24,18 @@ std::string hex2str(char *data, size_t dataSize)
     return out;
 }
 
-std::string ModParser::GetText()
+std::string GetFilename(std::string str)
 {
-    std::string str = "";
-    std::string line = "";
-    size_t savedPos = modFile.tellg();
-    line = GetLine(); // read key/section line
-
-    if (isKey)
-    {
-        str += line.substr(line.find("=") + 1);
-        while ( modFile.good() )
-        {
-            savedPos = modFile.tellg();
-            line = GetLine();
-            if (FindKey(line) != -1 || FindSection(line) != -1)
-                break;
-            str += std::string("\n") + line;
-        }
-    }
-    else if (isSection)
-    {
-        while ( modFile.good() )
-        {
-            savedPos = modFile.tellg();
-            line = GetLine();
-            if (FindKey(line) != -1 || FindSection(line) != -1)
-                break;
-            if (str != "") str += "\n";
-            str += line;
-        }
-    }
-
-    modFile.seekg(savedPos, std::ios::beg);
-
-    return str;
+    unsigned found = str.find_last_of("/\\");
+    return str.substr(found + 1);
 }
 
-std::vector<char> ModParser::GetDataChunk()
+std::string GetStringValue(const std::string& TextBuffer)
 {
-    std::vector<char> data;
-
-    std::string str = GetText();
-
-    if (str == "")
-        return data;
-
-    std::istringstream ss(str);
-
-    while (ss.good())
-    {
-        int byte;
-        ss >> std::hex >> byte;
-        if (!ss.fail() && !ss.bad())
-            data.push_back(byte);
-    }
-
-    return data;
-}
-
-std::string ModParser::GetStringValue()
-{
-    std::string str = GetText();
+    std::string str = TextBuffer;
     if (str.length() < 1)
-        return std::string("");
-    str = str.substr(0, str.find_first_of("\n")); // get first line
+        return "";
+    str = str.substr(0, str.find_first_of("\n")); /// get first line
     if (str.find("\"") != std::string::npos)
     {
         str = str.substr(str.find_first_not_of("\""));
@@ -101,44 +49,132 @@ std::string ModParser::GetStringValue()
     return str;
 }
 
-int ModParser::GetIntValue()
+std::vector<char> GetDataChunk(const std::string& TextBuffer)
+{
+    std::vector<char> data;
+    if (TextBuffer.length() < 1)
+        return data;
+    std::istringstream ss(TextBuffer);
+    while (ss.good())
+    {
+        int byte;
+        ss >> std::hex >> byte;
+        if (!ss.fail() && !ss.bad())
+            data.push_back(byte);
+    }
+    return data;
+}
+
+int GetIntValue(const std::string& TextBuffer)
 {
     int val = 0;
-
-    std::string str = GetStringValue();
-
-    if (str == "")
+    std::string str = ::GetStringValue(TextBuffer);
+    if (str.length() < 1)
         return 0;
-
     //val = std::stoi(str, nullptr, 0);
-
     std::istringstream ss(str);
+    /*if (str.find("0x") != std::string::npos)
+        ss >> std::hex >> val;
+    else
+        ss >> std::dec >> val;*/
+    ss >> val;
+    return val;
+}
 
+unsigned GetUnsignedValue(const std::string& TextBuffer)
+{
+    unsigned val = 0;
+    std::string str = ::GetStringValue(TextBuffer);
+    if (str.length() < 1)
+        return 0;
+    std::istringstream ss(str);
     if (str.find("0x") != std::string::npos)
         ss >> std::hex >> val;
     else
         ss >> std::dec >> val;
-
     return val;
 }
 
-float ModParser::GetFloatValue()
+float GetFloatValue(const std::string& TextBuffer)
 {
     float val = 0;
-    std::string str = GetStringValue();
-    if (str == "")
-        return val;
+    std::string str = ::GetStringValue(TextBuffer);
+    if (str.length() < 1)
+        return 0;
     std::istringstream ss(str);
     ss >> val;
     return val;
 }
 
+std::string ModParser::GetText()
+{
+    std::string str = "";
+    std::string line = "";
+    size_t savedPos = modFile.tellg();
+    line = GetLine(); /// read key/section line
+    if (isKey)
+    {
+        str += line.substr(line.find("=") + 1);
+        while ( modFile.good() )
+        {
+            savedPos = modFile.tellg();
+            line = GetLine();
+            if (FindKey(line) != -1 || FindSection(line) != -1)
+            {
+                modFile.clear(std::ios::eofbit); /// to parse last line correctly
+                break;
+            }
+            str += std::string("\n") + line;
+        }
+    }
+    else if (isSection)
+    {
+        while ( modFile.good() )
+        {
+            savedPos = modFile.tellg();
+            line = GetLine();
+            if (FindKey(line) != -1 || FindSection(line) != -1)
+            {
+                modFile.clear(std::ios::eofbit); /// to parse last line correctly
+                break;
+            }
+            if (str != "") str += "\n";
+            str += line;
+        }
+    }
+    modFile.seekg(savedPos, std::ios::beg);
+    return str;
+}
+
+std::string ModParser::GetTextValue()
+{
+    return Value;
+}
+
+std::vector<char> ModParser::GetDataChunk()
+{
+    return ::GetDataChunk(Value);
+}
+
+std::string ModParser::GetStringValue()
+{
+    return ::GetStringValue(Value);
+}
+
+int ModParser::GetIntValue()
+{
+    return ::GetIntValue(Value);
+}
+
+float ModParser::GetFloatValue()
+{
+    return ::GetFloatValue(Value);
+}
+
 std::string ModParser::GetLine()
 {
     std::string line = "";
-
     int ch = 0;
-
     while(ch != 0x0D && ch != 0x0A && modFile.good())
     {
         ch = modFile.get();
@@ -160,10 +196,8 @@ std::string ModParser::GetLine()
             line += ch;
         }
     }
-
     if (modFile.peek() == 0x0A || modFile.peek() == 0x0D)
         modFile.get();
-
     return line;
 }
 
@@ -171,34 +205,38 @@ int ModParser::FindNext()
 {
     if (!modFile.good())
         return -1;
-
-    int idx = -1;
-    int keyIdx = -1, sectionIdx = -1;
+    Name = "";
+    Value = "";
+    Index = -1;
+    int idx = -1, keyIdx = -1, sectionIdx = -1;
     std::string line = "";
-
-    unsigned int savedPos = modFile.tellg();
-
+    size_t savedPos = modFile.tellg();
     while ( keyIdx == -1 && sectionIdx == -1 && modFile.good() )
     {
         savedPos = modFile.tellg();
         line = GetLine();
-        if (!modFile.fail() && !modFile.bad())
-        {
-            keyIdx = FindKey(line);
-            sectionIdx = FindSection(line);
-        }
+        keyIdx = FindKey(line);
+        sectionIdx = FindSection(line);
     }
-
+    modFile.clear(std::ios::eofbit); /// to get last line value correctly
     modFile.seekg(savedPos, std::ios::beg);
-
     isKey = (keyIdx != -1);
     isSection = (sectionIdx != -1);
-
     if (keyIdx != -1)
+    {
         idx = keyIdx;
+        Name = keyNames[idx];
+    }
     if (sectionIdx != -1)
+    {
         idx = sectionIdx;
-
+        Name = sectionNames[idx];
+    }
+    if (idx != -1)
+    {
+        Value = GetText();
+    }
+    Index = idx;
     return idx;
 }
 
@@ -245,16 +283,19 @@ int ModParser::FindSectionNameIdx(std::string name)
 
 bool ModParser::OpenModFile(const char* name)
 {
+    if (modFile.is_open())
+    {
+        modFile.close();
+        modFile.clear();
+    }
     modFile.open(name, std::ios::binary);
-
     if (!modFile.good())
         return false;
-
-    // check if file is text
+    /// check if file is text
     while (modFile.good())
     {
         char ch = modFile.get();
-        if (!modFile.good())
+        if (modFile.eof())
             break;
         if (ch < 1 || ch > 127)
         {
@@ -262,10 +303,13 @@ bool ModParser::OpenModFile(const char* name)
             return false;
         }
     }
-
     modFile.clear();
     modFile.seekg(0);
-
+    isKey = false;
+    isSection = false;
+    Name = "";
+    Value = "";
+    Index = -1;
     return true;
 }
 
@@ -294,18 +338,4 @@ void ModParser::SetCommentMarkers(char begMarker, char endMarker, char lineMarke
     commentBegin = begMarker;
     commentEnd = endMarker;
     commentLine = lineMarker;
-}
-
-std::string ModParser::GetKeyName(int idx)
-{
-    if (idx >= 0 && uint32_t(idx) < keyNames.size())
-        return keyNames[idx];
-    return std::string("");
-}
-
-std::string ModParser::GetSectionName(int idx)
-{
-    if (idx >= 0 && uint32_t(idx) < sectionNames.size())
-        return sectionNames[idx];
-    return std::string("");
 }

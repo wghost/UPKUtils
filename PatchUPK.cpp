@@ -2,8 +2,7 @@
 #include <sstream>
 #include <cstring>
 
-#include "UPKUtils.h"
-#include "ModParser.h"
+#include "ModScript.h"
 
 using namespace std;
 
@@ -22,25 +21,6 @@ string int2fstr(int val)
     return ss.str();
 }
 
-string GetFilename(string str)
-{
-    unsigned found = str.find_last_of("/\\");
-    return str.substr(found + 1);
-}
-
-int string2int(string str)
-{
-    int val = 0;
-    if (str == "")
-        return val;
-    istringstream ss(str);
-    if (str.find("0x") != string::npos)
-        ss >> hex >> val;
-    else
-        ss >> dec >> val;
-    return val;
-}
-
 int main(int argN, char* argV[])
 {
     cout << "PatchUPK" << endl;
@@ -51,7 +31,33 @@ int main(int argN, char* argV[])
         return 1;
     }
 
-    ModParser parser;
+    string upkPath = "";
+
+    if (argN == 3)
+    {
+        upkPath = argV[2];
+        if (upkPath.length() < 1)
+        {
+            cerr << "Incorrect package path!" << endl;
+            return 1;
+        }
+        if (upkPath[upkPath.length() - 1] != '\\')
+            upkPath +=  "\\";
+    }
+
+    ModScript script(argV[1], upkPath.c_str());
+    script.InitStreams(std::cerr, std::cout);
+    if (script.IsGood() == false)
+    {
+        return 1;
+    }
+    script.ExecuteStack();
+    /*if (script.ExecuteStack() == false)
+    {
+        return 1;
+    }*/
+
+    /*ModParser parser;
 
     if (!parser.OpenModFile(argV[1]))
     {
@@ -540,7 +546,7 @@ int main(int argN, char* argV[])
             }
         }
         idx = parser.FindNext();
-    }
+    }*/
 
     if (string(argV[1]).find(".uninstall") == string::npos)
     {
@@ -558,7 +564,10 @@ int main(int argN, char* argV[])
             cerr << "Error saving uninstall script!" << endl;
             return 1;
         }
-        uninstFile << backupString.str();
+        uninstFile << "MOD_NAME=" << argV[1] << " uninstall script\n"
+                   << "AUTHOR=PatchUPK\n"
+                   << "DESCRIPTION=This is automatically generated uninstall script. Do not change anything!\n\n"
+                   << script.GetBackupScript() << "\n{ backup script end }\n";
         cout << "Uninstall script saved to " << nextName << endl;
     }
 

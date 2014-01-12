@@ -60,6 +60,12 @@
 		<Unit filename="ModParser.h">
 			<Option target="PatchUPK" />
 		</Unit>
+		<Unit filename="ModScript.cpp">
+			<Option target="PatchUPK" />
+		</Unit>
+		<Unit filename="ModScript.h">
+			<Option target="PatchUPK" />
+		</Unit>
 		<Unit filename="MoveExpandFunction.cpp">
 			<Option target="MoveExpandFunction" />
 		</Unit>

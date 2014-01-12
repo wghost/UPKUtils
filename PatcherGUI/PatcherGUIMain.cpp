@@ -259,6 +259,23 @@ void PatcherGUIFrame::OnSelectModFile(wxCommandEvent& event)
     bSelectFile = true;
 }
 
+bool PatcherGUIFrame::NeedDecompression(wxString filename)
+{
+    wxString sizeFile = filename + ".uncompressed_size";
+    if (wxFileExists(sizeFile))
+        return true;
+    std::ifstream in(filename.c_str(), std::ios::binary);
+    if (!in.is_open())
+        return false;
+    in.seekg(-3, std::ios::end);
+    char val[3];
+    in.read(val, 3);
+    in.close();
+    if (val[0] == 0x11 && val[1] == 0x00 && val[2] == 0x00)
+        return true;
+    return false;
+}
+
 void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
 {
     if (RichTextCtrl1->IsModified() && RichTextCtrl1->GetValue() != wxEmptyString)
@@ -298,11 +315,15 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
         FilesToBackup.Add(upkFile);
         wxString sizeFile = TextCtrl1->GetValue() + "\\XComGame\\CookedPCConsole\\" + upkFile + ".uncompressed_size";
         //TextCtrl3->AppendText(sizeFile + "\n");
-        if (wxFileExists(sizeFile))
+        //if (wxFileExists(sizeFile))
+        if (NeedDecompression(TextCtrl1->GetValue() + "\\XComGame\\CookedPCConsole\\" + upkFile))
         {
-            FilesToBackup.Add(upkFile + ".uncompressed_size");
-            FilesToRemove.Add(upkFile + ".uncompressed_size");
             FilesToDecompress.Add(upkFile);
+            if (wxFileExists(sizeFile))
+            {
+                FilesToBackup.Add(upkFile + ".uncompressed_size");
+                FilesToRemove.Add(upkFile + ".uncompressed_size");
+            }
         }
         str = str.substr(pos + 8);
         pos = str.find("UPK_FILE");
