@@ -12,7 +12,7 @@ int main(int argN, char* argV[])
 
     if (argN < 3 || argN > 4)
     {
-        cerr << "Usage: FindObjectEntry UnpackedResourceFile.upk FunctionName [NewFunctionSize or /u]" << endl;
+        cerr << "Usage: MoveExpandFunction UnpackedResourceFile.upk FunctionName [NewFunctionSize or /u]" << endl;
         return 1;
     }
 
