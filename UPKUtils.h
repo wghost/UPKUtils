@@ -36,7 +36,7 @@ public:
     bool MoveResizeObject(uint32_t idx, int newObjectSize = -1);
     bool UndoMoveResizeObject(uint32_t idx);
     /// Deserialize
-    std::string Deserialize(UObjectReference ObjRef);
+    std::string Deserialize(UObjectReference ObjRef, bool TryUnsafe = false, bool QuickMode = false);
     /// Write data
     bool CheckValidFileOffset(size_t offset);
     bool CheckValidRelOffset(size_t relOffset, UPKScope scope = UPKScope::Package, uint32_t idx = 0);

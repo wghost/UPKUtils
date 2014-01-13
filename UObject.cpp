@@ -2,28 +2,30 @@
 
 #include <sstream>
 
-std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& info)
+std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe, bool quick)
 {
     std::ostringstream ss;
     ss << "UDefaultPropertiesList:\n";
     PropertyOffset = stream.tellg();
     DefaultProperties.clear();
-    size_t maxOffset = info.GetExportEntry(OwnerRef).SerialOffset + info.GetExportEntry(OwnerRef).SerialSize;
+    size_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
     UDefaultProperty Property;
     do
     {
         Property = UDefaultProperty{};
-        Property.SetOwner(OwnerRef);
-        ss << Property.Deserialize(stream, info, maxOffset);
+        ss << Property.Deserialize(stream, info, owner, unsafe, quick);
         DefaultProperties.push_back(Property);
     } while (Property.GetName() != "None" && stream.good() && stream.tellg() < maxOffset);
     PropertySize = (unsigned)stream.tellg() - (unsigned)PropertyOffset;
     return ss.str();
 }
 
-std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, size_t maxOffset)
+std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe, bool quick)
 {
+    Init(owner, unsafe, quick);
+    size_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
     std::ostringstream ss;
+    ss << "UDefaultProperty:\n";
     stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
     Name = info.IndexToName(NameIdx);
     ss << "\tNameIdx: " << FormatHEX(NameIdx) << " -> " << info.IndexToName(NameIdx) << std::endl;
@@ -52,13 +54,18 @@ std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, s
         {
             stream.read(reinterpret_cast<char*>(&InnerNameIdx), sizeof(InnerNameIdx));
             ss << "\tInnerNameIdx: " << FormatHEX(InnerNameIdx) << " -> " << info.IndexToName(InnerNameIdx) << std::endl;
+            if (Type == "StructProperty")
+                Type = info.IndexToName(InnerNameIdx);
         }
         if (PropertySize > 0)
         {
             size_t offset = stream.tellg();
             stream.read(InnerValue.data(), InnerValue.size());
-            stream.seekg(offset);
-            ss << DeserializeValue(stream, info);
+            if (QuickMode == false)
+            {
+                stream.seekg(offset);
+                ss << DeserializeValue(stream, info);
+            }
         }
     }
     return ss.str();
@@ -69,9 +76,9 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     std::ostringstream ss;
     if (Type == "IntProperty")
     {
-        uint32_t value;
+        int32_t value;
         stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-        ss << "\tInteger: " << FormatHEX(value) << " = " << value << std::endl;
+        ss << "\tInteger: " << FormatHEX((uint32_t)value) << " = " << value << std::endl;
     }
     else if (Type == "FloatProperty")
     {
@@ -110,12 +117,6 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
             ss << "\tString = " << str << std::endl;
         }
     }
-    //else if (Type == "StructProperty")
-    //{
-    //    UDefaultProperty StructProperty;
-    //    StructProperty.OwnerRef = 0; /// stub!!!
-    //    ss << std::endl << StructProperty.Deserialize(stream, info);
-    //}
     else if (Type == "ArrayProperty")
     {
         uint32_t NumElements;
@@ -123,25 +124,41 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
         ss << "\tNumElements = " << FormatHEX(NumElements) << " = " << NumElements << std::endl;
         if ((NumElements > 0) && (PropertySize > 4))
         {
-            std::string ArrayInnerType = FindArrayType(info.IndexToName(NameIdx), stream, info);
-            //if (ArrayInnerType == "None")
-            //{
-            //    ArrayInnerType = GuessArrayType(info.IndexToName(NameIdx));
-            //}
+            std::string ArrayInnerType = FindArrayType(Name, stream, info);
+            if (TryUnsafe == true && ArrayInnerType == "None")
+            {
+                ArrayInnerType = GuessArrayType(Name);
+                if (ArrayInnerType != "None")
+                    ss << "\tUnsafe type guess:\n";
+            }
             ss << "\tArrayInnerType = " << ArrayInnerType << std::endl;
             UDefaultProperty InnerProperty;
-            InnerProperty.OwnerRef = 0; /// stub!!!
+            InnerProperty.OwnerRef = OwnerRef;
+            InnerProperty.TryUnsafe = TryUnsafe;
             InnerProperty.Type = ArrayInnerType;
             InnerProperty.PropertySize = PropertySize - 4;
             if (ArrayInnerType == "None")
             {
-                ss << InnerProperty.DeserializeValue(stream, info);
+                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements <= 24)
+                {
+                    InnerProperty.PropertySize /= NumElements;
+                    for (unsigned i = 0; i < NumElements; ++i)
+                    {
+                        ss << "\t" << Name << "[" << i << "]:\n";
+                        ss << InnerProperty.DeserializeValue(stream, info);
+                    }
+                }
+                else
+                {
+                    ss << InnerProperty.DeserializeValue(stream, info);
+                }
             }
             else
             {
+                InnerProperty.PropertySize /= NumElements;
                 for (unsigned i = 0; i < NumElements; ++i)
                 {
-                    ss << "\t" << info.IndexToName(NameIdx) << "[" << i << "]: ";
+                    ss << "\t" << Name << "[" << i << "]:\n";
                     ss << InnerProperty.DeserializeValue(stream, info);
                 }
             }
@@ -176,10 +193,35 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
            << FormatHEX((uint32_t)X) << ", " << FormatHEX((uint32_t)Y) << ") = ("
            << X << ", " << Y << ")" << std::endl;
     }
+    /// if it is big, it might be inner property list
+    else if(TryUnsafe == true && PropertySize > 24)
+    {
+        UDefaultPropertiesList SomeProperties;
+        ss << "Unsafe guess (it's a Property List):\n" << SomeProperties.Deserialize(stream, info, OwnerRef, true, false);
+    }
+    /// if it is small, it might be NameIndex
+    else if(TryUnsafe == true && PropertySize == 8)
+    {
+        UNameIndex value;
+        stream.read(reinterpret_cast<char*>(&value), sizeof(value));
+        ss << "\tUnsafe guess:\n";
+        ss << "\tName: " << FormatHEX(value) << " = " << info.IndexToName(value) << std::endl;
+    }
+    /// if it is even smaller, it might be integer (or float) or object reference
+    else if(TryUnsafe == true && PropertySize == 4)
+    {
+        int32_t value;
+        stream.read(reinterpret_cast<char*>(&value), sizeof(value));
+        ss << "\tUnsafe guess: "
+           << "It's an Integer: " << FormatHEX((uint32_t)value) << " = " << value
+           << " or a Reference: " << FormatHEX((uint32_t)value) << " -> " << info.ObjRefToName(value) << std::endl;
+    }
     else
     {
-        stream.seekg(PropertySize, std::ios::cur);
-        ss << "\tUnknown property!\n";
+        //stream.seekg(PropertySize, std::ios::cur);
+        std::vector<char> unk(PropertySize);
+        stream.read(unk.data(), unk.size());
+        ss << "\tUnknown property: " << FormatHEX(unk) << std::endl;
     }
     return ss.str();
 }
@@ -196,15 +238,19 @@ std::string UDefaultProperty::FindArrayType(std::string ArrName, std::istream& s
         OwnerName = OwnerName.substr(pos + 9);
     }
     std::string FullName = OwnerName + "." + ArrName;
-    UObjectReference ObjRef = info.FindObject(FullName, true);
+    UObjectReference ObjRef = info.FindObject(FullName);
     if (ObjRef <= 0)
         return "None";
     FObjectExport ArrayEntry = info.GetExportEntry(ObjRef);
     if (ArrayEntry.Type == "ArrayProperty")
     {
-        size_t StreamPos = stream.tellg();
         UArrayProperty ArrProperty;
+        size_t StreamPos = stream.tellg();
         stream.seekg(ArrayEntry.SerialOffset);
+        /// quick-deserialize property, as we need only it's inner type info
+        ArrProperty.SetRef(ObjRef);
+        ArrProperty.SetUnsafe(false);
+        ArrProperty.SetQuickMode(true);
         ArrProperty.Deserialize(stream, info);
         stream.seekg(StreamPos);
         if (ArrProperty.GetInner() <= 0)
@@ -244,13 +290,12 @@ std::string UObject::Deserialize(std::istream& stream, UPKInfo& info)
     ss << "\tPrevObjRef = " << FormatHEX((uint32_t)ObjRef) << " -> " << info.ObjRefToName(ObjRef) << std::endl;
     if (Type != GlobalType::UClass)
     {
-        /*FObjectExport ThisTableEntry = info.GetExportEntry(ThisRef);
-        if (ThisRef > 0 && (ThisTableEntry.ObjectFlagsL & (uint32_t)UObjectFlagsL::HasStack))
+        FObjectExport ThisTableEntry = info.GetExportEntry(ThisRef);
+        if (TryUnsafe == true && ThisRef > 0 && (ThisTableEntry.ObjectFlagsL & (uint32_t)UObjectFlagsL::HasStack))
         {
             stream.seekg(22, std::ios::cur);
-        }*/
-        DefaultProperties.SetOwner(ThisRef);
-        ss << DefaultProperties.Deserialize(stream, info);
+        }
+        ss << DefaultProperties.Deserialize(stream, info, ThisRef, TryUnsafe, QuickMode);
     }
     return ss.str();
 }
@@ -350,8 +395,7 @@ std::string UScriptStruct::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&StructFlags), sizeof(StructFlags));
     ss << "\tStructFlags = " << FormatHEX(StructFlags) << std::endl;
     ss << FormatStructFlags(StructFlags);
-    StructDefaultProperties.SetOwner(ThisRef);
-    ss << StructDefaultProperties.Deserialize(stream, info);
+    ss << StructDefaultProperties.Deserialize(stream, info, ThisRef, TryUnsafe, QuickMode);
     ScriptStructSize = (unsigned)stream.tellg() - (unsigned)ScriptStructOffset;
     return ss.str();
 }
@@ -700,7 +744,8 @@ std::string UObjectUnknown::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     /// to be on a safe side: don't deserialize unknown objects
-    //ss << UObject::Deserialize(stream, info);
+    if (TryUnsafe == true)
+        ss << UObject::Deserialize(stream, info);
     ss << "UObjectUnknown:\n";
     ss << "\tObject unknown, can't deserialize!\n";
     return ss.str();

@@ -52,7 +52,7 @@ int main(int argN, char* argV[])
 
     if (ObjRef > 0)
     {
-        cout << "Attempting deserialization:\n" << package.Deserialize(ObjRef);
+        cout << "Attempting deserialization:\n" << package.Deserialize(ObjRef, true);
     }
 
     return 0;

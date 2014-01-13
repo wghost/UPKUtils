@@ -173,6 +173,7 @@ class UPKInfo
         UObjectReference GetOwnerRef(UObjectReference ObjRef);
         int FindName(std::string name);
         UObjectReference FindObject(std::string FullName, bool isExport = true);
+        UObjectReference FindObjectByName(std::string Name, bool isExport = true);
         bool IsNoneIdx(UNameIndex idx) { return (idx.NameTableIdx == NoneIdx); }
         /// Getters
         const FObjectExport& GetExportEntry(uint32_t idx);

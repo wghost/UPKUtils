@@ -44,11 +44,10 @@ enum class GlobalType
 class UDefaultProperty
 {
 public:
-    UDefaultProperty(): OwnerRef(0) {}
+    UDefaultProperty(): Name("None"), Type("None"), OwnerRef(0), TryUnsafe(0), QuickMode(0) {}
     ~UDefaultProperty() {}
-    std::string Deserialize(std::istream& stream, UPKInfo& info, size_t maxOffset);
-    std::string Format(std::istream& stream, UPKInfo& info);
-    void SetOwner(UObjectReference Owner) { OwnerRef = Owner; }
+    std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe = false, bool quick = false);
+    void Init(UObjectReference owner, bool unsafe = false, bool quick = false) { OwnerRef = owner; TryUnsafe = unsafe; QuickMode = quick; }
     std::string GetName() { return Name; }
     std::string DeserializeValue(std::istream& stream, UPKInfo& info);
     std::string FindArrayType(std::string ArrName, std::istream& stream, UPKInfo& info);
@@ -63,22 +62,21 @@ protected:
     UNameIndex InnerNameIdx;  /// for StructProperty and ByteProperty only
     std::vector<char> InnerValue;
     /// memory
-    UObjectReference OwnerRef;
     std::string Name;
     std::string Type;
+    UObjectReference OwnerRef;
+    bool TryUnsafe;
+    bool QuickMode;
 };
 
 class UDefaultPropertiesList
 {
 public:
-    UDefaultPropertiesList(): OwnerRef(0) {}
+    UDefaultPropertiesList() {}
     ~UDefaultPropertiesList() {}
-    UDefaultPropertiesList(UObjectReference owner): OwnerRef(owner) {}
-    void SetOwner(UObjectReference owner) { OwnerRef = owner; }
-    std::string Deserialize(std::istream& stream, UPKInfo& info);
+    std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe = false, bool quick = false);
 protected:
     std::vector<UDefaultProperty> DefaultProperties;
-    UObjectReference OwnerRef;
     size_t PropertyOffset;
     size_t PropertySize;
 };
@@ -87,10 +85,12 @@ protected:
 class UObject
 {
 public:
-    UObject(): Type(GlobalType::UObject), ThisRef(0), FlagsOffset(0) {}
+    UObject(): Type(GlobalType::UObject), ThisRef(0), FlagsOffset(0), TryUnsafe(0), QuickMode(0) {}
     virtual ~UObject() {}
     virtual std::string Deserialize(std::istream& stream, UPKInfo& info);
     void SetRef(UObjectReference thisRef) { ThisRef = thisRef; }
+    void SetUnsafe(bool val) { TryUnsafe = val; }
+    void SetQuickMode(bool val) { QuickMode = val; }
     virtual bool IsStructure() { return false; }
     virtual bool IsProperty() { return false; }
     virtual bool IsState() { return false; }
@@ -102,6 +102,8 @@ protected:
     GlobalType Type;
     UObjectReference ThisRef;
     size_t FlagsOffset;
+    bool TryUnsafe;
+    bool QuickMode;
 };
 
 class UObjectNone: public UObject

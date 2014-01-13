@@ -324,6 +324,27 @@ UObjectReference UPKInfo::FindObject(std::string FullName, bool isExport)
     return 0;
 }
 
+UObjectReference UPKInfo::FindObjectByName(std::string Name, bool isExport)
+{
+    /// Import object
+    if (isExport == false)
+    {
+        for (unsigned i = 1; i < ImportTable.size(); ++i)
+        {
+            if (ImportTable[i].Name == Name)
+                return -i;
+        }
+    }
+    /// Export object
+    for (unsigned i = 1; i < ExportTable.size(); ++i)
+    {
+        if (ExportTable[i].Name == Name)
+            return i;
+    }
+    /// Object not found
+    return 0;
+}
+
 const FObjectExport& UPKInfo::GetExportEntry(uint32_t idx)
 {
     if (idx < ExportTable.size())

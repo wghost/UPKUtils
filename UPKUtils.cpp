@@ -187,7 +187,7 @@ bool UPKUtils::UndoMoveResizeObject(uint32_t idx)
     return UndoMoveExportData(idx);
 }
 
-std::string UPKUtils::Deserialize(UObjectReference ObjRef)
+std::string UPKUtils::Deserialize(UObjectReference ObjRef, bool TryUnsafe, bool QuickMode)
 {
     if (ObjRef < 1 || ObjRef >= (int)ExportTable.size())
         return "Bad object reference!\n";
@@ -205,6 +205,8 @@ std::string UPKUtils::Deserialize(UObjectReference ObjRef)
     std::string res;
     UPKFile.seekg(ExportTable[ObjRef].SerialOffset);
     Obj->SetRef(ObjRef);
+    Obj->SetUnsafe(TryUnsafe);
+    Obj->SetQuickMode(QuickMode);
     res = Obj->Deserialize(UPKFile, *dynamic_cast<UPKInfo*>(this));
     delete Obj;
     return res;
