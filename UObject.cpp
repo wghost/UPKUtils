@@ -42,7 +42,11 @@ std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, s
         if (Type == "BoolProperty")
         {
             stream.read(reinterpret_cast<char*>(&BoolValue), sizeof(BoolValue));
-            ss << "\tBoolean value: " << FormatHEX(BoolValue) << std::endl;
+            ss << "\tBoolean value: " << FormatHEX(BoolValue) << " = ";
+            if (BoolValue == 0)
+                ss << "false\n";
+            else
+                ss << "true\n";
         }
         if (Type == "StructProperty" || Type == "ByteProperty")
         {
@@ -82,7 +86,11 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     {
         UObjectReference value;
         stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-        ss << "\tObject: " << FormatHEX((uint32_t)value) << " = " << info.ObjRefToName(value) << std::endl;
+        ss << "\tObject: " << FormatHEX((uint32_t)value) << " = ";
+        if (value == 0)
+            ss << "none\n";
+        else
+            ss << info.ObjRefToName(value) << std::endl;
     }
     else if (Type == "NameProperty" || Type == "ByteProperty")
     {
@@ -342,7 +350,8 @@ std::string UScriptStruct::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&StructFlags), sizeof(StructFlags));
     ss << "\tStructFlags = " << FormatHEX(StructFlags) << std::endl;
     ss << FormatStructFlags(StructFlags);
-    ss << DefaultProperties.Deserialize(stream, info);
+    StructDefaultProperties.SetOwner(ThisRef);
+    ss << StructDefaultProperties.Deserialize(stream, info);
     ScriptStructSize = (unsigned)stream.tellg() - (unsigned)ScriptStructOffset;
     return ss.str();
 }

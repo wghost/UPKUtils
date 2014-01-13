@@ -177,7 +177,7 @@ public:
 protected:
     /// persistent
     uint32_t StructFlags;
-    UDefaultPropertiesList DefaultProperties;
+    UDefaultPropertiesList StructDefaultProperties;
     /// memory
     size_t ScriptStructOffset;
     size_t ScriptStructSize;
