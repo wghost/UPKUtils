@@ -345,6 +345,16 @@ UObjectReference UPKInfo::FindObjectByName(std::string Name, bool isExport)
     return 0;
 }
 
+UObjectReference UPKInfo::FindObjectByOffset(size_t offset)
+{
+    for (unsigned i = 1; i < ExportTable.size(); ++i)
+    {
+        if (offset >= ExportTable[i].SerialOffset && offset < ExportTable[i].SerialOffset + ExportTable[i].SerialSize)
+            return i;
+    }
+    return 0;
+}
+
 const FObjectExport& UPKInfo::GetExportEntry(uint32_t idx)
 {
     if (idx < ExportTable.size())

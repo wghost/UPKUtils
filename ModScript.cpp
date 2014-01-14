@@ -20,9 +20,11 @@ void ModScript::SetExecutors()
     Parser.AddKeyName("AUTHOR");
     Executors.insert({"DESCRIPTION", &ModScript::FormatDescription});
     Parser.AddKeyName("DESCRIPTION");
-    /// Package key
+    /// Package keys
     Executors.insert({"UPK_FILE", &ModScript::OpenPackage});
     Parser.AddKeyName("UPK_FILE");
+    Executors.insert({"GUID", &ModScript::SetGUID});
+    Parser.AddKeyName("GUID");
     /// Scope keys
     Executors.insert({"OFFSET", &ModScript::SetGlobalOffset});
     Parser.AddKeyName("OFFSET");
@@ -58,10 +60,10 @@ void ModScript::SetExecutors()
     Parser.AddKeyName("INTEGER");
     Executors.insert({"UNSIGNED", &ModScript::WriteUnsignedValue});
     Parser.AddKeyName("UNSIGNED");
-    /*Executors.insert({"NAMEIDX", &ModScript::WriteNameIdx});
+    Executors.insert({"NAMEIDX", &ModScript::WriteNameIdx});
     Parser.AddKeyName("NAMEIDX");
     Executors.insert({"OBJIDX", &ModScript::WriteObjectIdx});
-    Parser.AddKeyName("OBJIDX");*/
+    Parser.AddKeyName("OBJIDX");
     /// uninstaller thing
     Executors.insert({"EXPAND_UNDO", &ModScript::WriteUndoMoveResize});
     Parser.AddKeyName("EXPAND_UNDO");
@@ -93,6 +95,7 @@ bool ModScript::Parse(const char* filename)
 {
     BackupScript.clear();
     UPKNames.clear();
+    GUIDs.clear();
     if (Parser.OpenModFile(filename) == false)
     {
         *ErrorMessages << "Can't open " << filename << " (file does not exist, or bad, or not ASCII)!" << std::endl;
@@ -180,7 +183,7 @@ bool ModScript::OpenPackage(const std::string& Param)
     if (ScriptState.UPKName == UPKFileName)
     {
         *ExecutionResults << UPKFileName << " is already opened!\n";
-        return true;
+        return SetGood();
     }
     ScriptState.UPKName = UPKFileName;
     std::string pathName = UPKPath + UPKFileName;
@@ -193,16 +196,53 @@ bool ModScript::OpenPackage(const std::string& Param)
             *ErrorMessages << "Compression flags:\n" << FormatCompressionFlags(ScriptState.Package.GetCompressionFlags());
         return SetBad();
     }
+    *ExecutionResults << "Package file: " << UPKFileName;
     AddUPKName(ScriptState.UPKName);
     ResetScope();
-    *ExecutionResults << "Package file: " << UPKFileName;
     if (UPKPath.length() > 0)
     {
         *ExecutionResults <<  " (" << pathName << ")";
     }
-    *ExecutionResults <<  std::endl;
+    *ExecutionResults << std::endl;
+    if (GUIDs.count(UPKFileName) > 0)
+    {
+        bool found = false;
+        std::string GUID = FormatHEX(ScriptState.Package.GetGUID());
+        std::multimap<std::string, std::string>::iterator it;
+        for (it = GUIDs.equal_range(UPKFileName).first; it != GUIDs.equal_range(UPKFileName).second; ++it)
+        {
+            if ( (*it).second == GUID)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (found == false)
+        {
+            *ErrorMessages << "Package GUID " << GUID << " does not match any of GUIDs specified for package " << UPKFileName << std::endl;
+            return SetBad();
+        }
+    }
     BackupScript.insert({ScriptState.UPKName, std::string("")});
     *ExecutionResults << "Package opened successfully!\n";
+    return SetGood();
+}
+
+bool ModScript::SetGUID(const std::string& Param)
+{
+    std::string PackageName, GUID;
+    std::string str = GetStringValue(Param);
+    size_t pos = str.find(':');
+    if (pos == std::string::npos)
+    {
+        *ErrorMessages << "Bad GUID key format!\n";
+        return SetBad();
+    }
+    PackageName = str.substr(pos + 1);
+    GUID = str.substr(0, pos);
+    GUIDs.insert({PackageName, GUID});
+    *ExecutionResults << "Added allowed GUID:\n";
+    *ExecutionResults << "Package: " << PackageName << " GUID: " << GUID << std::endl;
     return SetGood();
 }
 
@@ -485,7 +525,15 @@ bool ModScript::WriteModdedFile(const std::string& Param)
         *ErrorMessages << "Package is not opened!\n";
         return SetBad();
     }
-    std::string FilePath = GetStringValue(Param);
+    std::string str = GetStringValue(Param);
+    std::string FilePath = str;
+    std::string Spec = "";
+    size_t pos = str.find(':');
+    if (pos != std::string::npos)
+    {
+        FilePath = str.substr(0, pos);
+        Spec = str.substr(pos);
+    }
     *ExecutionResults << "Reading binary data from file: " << FilePath << " ...\n";
     std::ifstream BinFile(FilePath.c_str(), std::ios::binary);
     if (!BinFile)
@@ -529,7 +577,7 @@ bool ModScript::WriteModdedFile(const std::string& Param)
         UObjectReference ObjRef = ScriptState.Package.FindObject(FileName);
         if (ObjRef > 0)
         {
-            if (SetObject(FileName) == false)
+            if (SetObject(FileName + Spec) == false)
                 return SetBad();
         }
         else
@@ -615,25 +663,86 @@ bool ModScript::WriteUnsignedValue(const std::string& Param)
     return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
 }
 
+bool ModScript::WriteNameIdx(const std::string& Param)
+{
+    std::string str = GetStringValue(Param);
+    std::string Name = str;
+    int num = 0;
+    size_t pos = str.find('_');
+    if (pos != std::string::npos)
+    {
+        Name = str.substr(0, pos);
+        num = 1 + GetIntValue(str.substr(pos + 1));
+    }
+    *ExecutionResults << "Searching for name " << str << " ...\n";
+    int idx = ScriptState.Package.FindName(Name);
+    if (idx < 0)
+    {
+        *ErrorMessages << "Incorrect name: " << str << std::endl;
+        return SetBad();
+    }
+    *ExecutionResults << "Name found!\n";
+    UNameIndex NameIdx;
+    NameIdx.NameTableIdx = idx;
+    NameIdx.Numeric = num;
+    std::vector<char> dataChunk(8);
+    memcpy(dataChunk.data(), reinterpret_cast<char*>(&NameIdx), 8);
+    *ExecutionResults << "UNameIndex: " << str << " -> " << FormatHEX(NameIdx) << std::endl;
+    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+}
+
+bool ModScript::WriteObjectIdx(const std::string& Param)
+{
+    std::string FullName = GetStringValue(Param);
+    *ExecutionResults << "Searching for object named " << FullName << " ...\n";
+    UObjectReference ObjRef = ScriptState.Package.FindObject(FullName, false);
+    *ExecutionResults << "Object found!\n";
+    if (ObjRef == 0)
+    {
+        *ErrorMessages << "Can't find object named " << FullName << std::endl;
+        return SetBad();
+    }
+    std::vector<char> dataChunk(4);
+    memcpy(dataChunk.data(), reinterpret_cast<char*>(&ObjRef), 4);
+    *ExecutionResults << "UObjectReference: " << FullName << " -> " << FormatHEX((uint32_t)ObjRef) << std::endl;
+    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+}
+
 bool ModScript::WriteRename(const std::string& Param)
 {
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
     std::string str = GetStringValue(Param);
     size_t pos = str.find(":");
     if (pos == std::string::npos)
     {
-        *ErrorMessages << "Incorrect rename entry format!\n";
+        *ErrorMessages << "Incorrect rename entry format: " << str << std::endl;
         return SetBad();
     }
     std::string ObjName = str.substr(0, pos);
     std::string NewName = str.substr(pos + 1);
+    *ExecutionResults << "Renaming " << ObjName << " to " << NewName << " ...\n";
     if (NewName.length() != ObjName.length())
     {
         *ErrorMessages << "New name must have the same length as old name!\n";
         return SetBad();
     }
     if (SetNameEntry(ObjName) == false)
-        return SetBad();
-    *ExecutionResults << "Renaming " << ObjName << " to " << NewName << " ...\n";
+    {
+        if (SetNameEntry(NewName) == false)
+        {
+            *ErrorMessages << "Can't find any of the names specified!\n";
+            return SetBad();
+        }
+        else
+        {
+            *ExecutionResults << "Name entry already has name " << NewName << std::endl;
+            return SetGood();
+        }
+    }
     if (ScriptState.Package.WriteNameTableName(ScriptState.ObjIdx, NewName) == false)
     {
         *ErrorMessages << "Error writing new name!\n";

@@ -43,6 +43,7 @@ protected:
     std::ostream *ErrorMessages;
     std::ostream *ExecutionResults;
     std::map<std::string, std::string> BackupScript;
+    std::multimap<std::string, std::string> GUIDs;
     std::vector<std::string> UPKNames;
     void SetExecutors(); /// map names to keys/sections and functions
     struct
@@ -65,6 +66,7 @@ protected:
     bool FormatAuthor(const std::string& Param);
     bool FormatDescription(const std::string& Param);
     bool OpenPackage(const std::string& Param);
+    bool SetGUID(const std::string& Param);
     bool SetGlobalOffset(const std::string& Param);
     bool SetObject(const std::string& Param);
     bool SetNameEntry(const std::string& Param);
@@ -81,6 +83,8 @@ protected:
     bool WriteRename(const std::string& Param);
     bool SetDataChunkOffset(const std::string& Param);
     bool WriteMoveExpandLegacy(const std::string& Param);
+    bool WriteNameIdx(const std::string& Param);
+    bool WriteObjectIdx(const std::string& Param);
 
     bool Sink(const std::string& Param);
     /// helpers

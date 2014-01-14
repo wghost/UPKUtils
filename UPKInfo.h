@@ -174,11 +174,13 @@ class UPKInfo
         int FindName(std::string name);
         UObjectReference FindObject(std::string FullName, bool isExport = true);
         UObjectReference FindObjectByName(std::string Name, bool isExport = true);
+        UObjectReference FindObjectByOffset(size_t offset);
         bool IsNoneIdx(UNameIndex idx) { return (idx.NameTableIdx == NoneIdx); }
         /// Getters
         const FObjectExport& GetExportEntry(uint32_t idx);
         const FObjectImport& GetImportEntry(uint32_t idx);
         const FNameEntry& GetNameEntry(uint32_t idx);
+        FGuid GetGUID() { return Summary.GUID; }
         bool IsCompressed() { return Compressed; }
         UPKReadErrors GetError() { return ReadError; }
         uint32_t GetCompressionFlags() { return Summary.CompressionFlags; }

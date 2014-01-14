@@ -38,6 +38,14 @@
 				<Option compiler="gcc" />
 				<Option parameters="XComStrategyGame.upk" />
 			</Target>
+			<Target title="FindObjectByOffset">
+				<Option output="bin/FindObjectByOffset" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="FindObjectByOffset" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-std=c++11" />
@@ -50,6 +58,9 @@
 		</Linker>
 		<Unit filename="ExtractNameLists.cpp">
 			<Option target="ExtractNameLists" />
+		</Unit>
+		<Unit filename="FindObjectByOffset.cpp">
+			<Option target="FindObjectByOffset" />
 		</Unit>
 		<Unit filename="FindObjectEntry.cpp">
 			<Option target="FindObjectEntry" />
