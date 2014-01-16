@@ -84,7 +84,7 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     {
         float value;
         stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-        ss << "\tFloat: " << FormatHEX((uint32_t)value) << " = " << value << std::endl;
+        ss << "\tFloat: " << FormatHEX(value) << " = " << value << std::endl;
     }
     else if (Type == "ObjectProperty" ||
              Type == "InterfaceProperty" ||
@@ -171,7 +171,7 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
         stream.read(reinterpret_cast<char*>(&Y), sizeof(Y));
         stream.read(reinterpret_cast<char*>(&Z), sizeof(Z));
         ss << "\tVector (X, Y, Z) = ("
-           << FormatHEX((uint32_t)X) << ", " << FormatHEX((uint32_t)Y) << ", " << FormatHEX((uint32_t)Z) << ") = ("
+           << FormatHEX(X) << ", " << FormatHEX(Y) << ", " << FormatHEX(Z) << ") = ("
            << X << ", " << Y << ", " << Z << ")" << std::endl;
     }
     else if (Type == "Rotator")
@@ -190,7 +190,7 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
         stream.read(reinterpret_cast<char*>(&X), sizeof(X));
         stream.read(reinterpret_cast<char*>(&Y), sizeof(Y));
         ss << "\tVector2D (X, Y) = ("
-           << FormatHEX((uint32_t)X) << ", " << FormatHEX((uint32_t)Y) << ") = ("
+           << FormatHEX(X) << ", " << FormatHEX(Y) << ") = ("
            << X << ", " << Y << ")" << std::endl;
     }
     /// if it is big, it might be inner property list
@@ -347,7 +347,6 @@ std::string UStruct::Deserialize(std::istream& stream, UPKInfo& info)
     if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
         return ss.str();
     DataScript.resize(ScriptSerialSize);
-    ScriptOffset = stream.tellg();
     stream.read(DataScript.data(), DataScript.size());
     ss << "\tScript decompiler is not implemented!\n";
     StructSize = (unsigned)stream.tellg() - (unsigned)StructOffset;

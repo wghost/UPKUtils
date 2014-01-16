@@ -148,7 +148,6 @@ protected:
     std::vector<char> DataScript;
     /// memory
     size_t StructOffset;
-    size_t ScriptOffset;
     size_t StructSize;
 };
 

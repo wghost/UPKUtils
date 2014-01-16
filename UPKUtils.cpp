@@ -2,8 +2,6 @@
 
 #include <cstring>
 
-#include "UObjectFactory.h"
-
 std::string FormatUPKScope(UPKScope scope)
 {
     switch (scope)

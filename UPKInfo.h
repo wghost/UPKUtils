@@ -210,6 +210,7 @@ class UPKInfo
 std::string FormatHEX(uint32_t val);
 std::string FormatHEX(uint16_t val);
 std::string FormatHEX(uint8_t val);
+std::string FormatHEX(float val);
 std::string FormatHEX(FGuid GUID);
 std::string FormatHEX(UNameIndex NameIndex);
 std::string FormatHEX(uint32_t L, uint32_t H);

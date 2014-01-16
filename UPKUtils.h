@@ -2,6 +2,7 @@
 #define UPKUTILS_H
 
 #include "UPKInfo.h"
+#include "UObjectFactory.h"
 #include <fstream>
 
 enum class UPKScope

@@ -564,6 +564,19 @@ std::string FormatHEX(uint8_t val)
     return std::string(ch);
 }
 
+std::string FormatHEX(float val)
+{
+    std::string ret = "0x";
+    char *p = reinterpret_cast<char*>(&val);
+    for (unsigned i = 0; i < 4; ++i)
+    {
+        char ch[255];
+        sprintf(ch, "%02X", p[3 - i]);
+        ret += ch;
+    }
+    return ret;
+}
+
 std::string FormatHEX(FGuid GUID)
 {
     char ch[255];
