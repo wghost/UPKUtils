@@ -196,9 +196,9 @@ bool ModScript::OpenPackage(const std::string& Param)
             *ErrorMessages << "Compression flags:\n" << FormatCompressionFlags(ScriptState.Package.GetCompressionFlags());
         return SetBad();
     }
-    *ExecutionResults << "Package file: " << UPKFileName;
     AddUPKName(ScriptState.UPKName);
     ResetScope();
+    *ExecutionResults << "Package file: " << UPKFileName;
     if (UPKPath.length() > 0)
     {
         *ExecutionResults <<  " (" << pathName << ")";
@@ -223,7 +223,10 @@ bool ModScript::OpenPackage(const std::string& Param)
             return SetBad();
         }
     }
-    BackupScript.insert({ScriptState.UPKName, std::string("")});
+    if (BackupScript.count(ScriptState.UPKName) < 1)
+    {
+        BackupScript.insert({ScriptState.UPKName, std::string("")});
+    }
     *ExecutionResults << "Package opened successfully!\n";
     return SetGood();
 }
@@ -480,7 +483,11 @@ bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk, bool wasMove
                       << " (" << ScriptState.Offset << ")"
                       << "\nOffset (scope-relative): " << FormatHEX(ScriptState.RelOffset)
                       << " (" << ScriptState.RelOffset << ")\n";
-    ScriptState.Package.WriteData(ScriptState.Offset + ScriptState.RelOffset, DataChunk, &BackupData);
+    if (!ScriptState.Package.WriteData(ScriptState.Offset + ScriptState.RelOffset, DataChunk, &BackupData))
+    {
+        *ErrorMessages << "Write error!\n";
+        return SetBad();
+    }
     *ExecutionResults << "Write successful!" << std::endl;
     if (wasMoved == false)
     {

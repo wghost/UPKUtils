@@ -85,7 +85,7 @@ protected:
     bool WriteMoveExpandLegacy(const std::string& Param);
     bool WriteNameIdx(const std::string& Param);
     bool WriteObjectIdx(const std::string& Param);
-
+    /// end-of-block indicators are just skipped, as they don't actually used
     bool Sink(const std::string& Param);
     /// helpers
     bool CheckMoveResize(size_t DataSize, bool& wasMoved);
