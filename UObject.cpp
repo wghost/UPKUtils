@@ -148,7 +148,7 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
                         ss << InnerProperty.DeserializeValue(stream, info);
                     }
                 }
-                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 8)
+                else if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 8)
                 {
                     InnerProperty.PropertySize /= NumElements;
                     for (unsigned i = 0; i < NumElements; ++i)
@@ -157,7 +157,7 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
                         ss << InnerProperty.DeserializeValue(stream, info);
                     }
                 }
-                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 4)
+                else if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 4)
                 {
                     InnerProperty.PropertySize /= NumElements;
                     for (unsigned i = 0; i < NumElements; ++i)
