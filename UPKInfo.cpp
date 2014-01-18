@@ -567,7 +567,7 @@ std::string FormatHEX(uint8_t val)
 std::string FormatHEX(float val)
 {
     std::string ret = "0x";
-    char *p = reinterpret_cast<char*>(&val);
+    uint8_t *p = reinterpret_cast<uint8_t*>(&val);
     for (unsigned i = 0; i < 4; ++i)
     {
         char ch[255];
