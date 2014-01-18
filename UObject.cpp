@@ -139,7 +139,25 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
             InnerProperty.PropertySize = PropertySize - 4;
             if (ArrayInnerType == "None")
             {
-                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements <= 24)
+                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements >= 24)
+                {
+                    InnerProperty.PropertySize /= NumElements;
+                    for (unsigned i = 0; i < NumElements; ++i)
+                    {
+                        ss << "\t" << Name << "[" << i << "]:\n";
+                        ss << InnerProperty.DeserializeValue(stream, info);
+                    }
+                }
+                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 8)
+                {
+                    InnerProperty.PropertySize /= NumElements;
+                    for (unsigned i = 0; i < NumElements; ++i)
+                    {
+                        ss << "\t" << Name << "[" << i << "]:\n";
+                        ss << InnerProperty.DeserializeValue(stream, info);
+                    }
+                }
+                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 4)
                 {
                     InnerProperty.PropertySize /= NumElements;
                     for (unsigned i = 0; i < NumElements; ++i)
@@ -744,7 +762,11 @@ std::string UObjectUnknown::Deserialize(std::istream& stream, UPKInfo& info)
     std::ostringstream ss;
     /// to be on a safe side: don't deserialize unknown objects
     if (TryUnsafe == true)
+    {
         ss << UObject::Deserialize(stream, info);
+        uint32_t pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
+        ss << "Stream relative position: " << FormatHEX(pos) << " (" << pos << ")\n";
+    }
     ss << "UObjectUnknown:\n";
     ss << "\tObject unknown, can't deserialize!\n";
     return ss.str();
