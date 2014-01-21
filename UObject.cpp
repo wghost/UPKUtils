@@ -60,12 +60,15 @@ std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, U
         if (PropertySize > 0)
         {
             size_t offset = stream.tellg();
+            InnerValue.resize(PropertySize);
             stream.read(InnerValue.data(), InnerValue.size());
+            size_t offset2 = stream.tellg();
             if (QuickMode == false)
             {
                 stream.seekg(offset);
                 ss << DeserializeValue(stream, info);
             }
+            stream.seekg(offset2);
         }
     }
     return ss.str();
@@ -125,12 +128,12 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
         if ((NumElements > 0) && (PropertySize > 4))
         {
             std::string ArrayInnerType = FindArrayType(Name, stream, info);
-            if (TryUnsafe == true && ArrayInnerType == "None")
+            /*if (TryUnsafe == true && ArrayInnerType == "None")
             {
                 ArrayInnerType = GuessArrayType(Name);
                 if (ArrayInnerType != "None")
                     ss << "\tUnsafe type guess:\n";
-            }
+            }*/
             ss << "\tArrayInnerType = " << ArrayInnerType << std::endl;
             UDefaultProperty InnerProperty;
             InnerProperty.OwnerRef = OwnerRef;
@@ -139,25 +142,11 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
             InnerProperty.PropertySize = PropertySize - 4;
             if (ArrayInnerType == "None")
             {
-                if (TryUnsafe == true && InnerProperty.PropertySize/NumElements >= 24)
-                {
-                    InnerProperty.PropertySize /= NumElements;
-                    for (unsigned i = 0; i < NumElements; ++i)
-                    {
-                        ss << "\t" << Name << "[" << i << "]:\n";
-                        ss << InnerProperty.DeserializeValue(stream, info);
-                    }
-                }
-                else if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 8)
-                {
-                    InnerProperty.PropertySize /= NumElements;
-                    for (unsigned i = 0; i < NumElements; ++i)
-                    {
-                        ss << "\t" << Name << "[" << i << "]:\n";
-                        ss << InnerProperty.DeserializeValue(stream, info);
-                    }
-                }
-                else if (TryUnsafe == true && InnerProperty.PropertySize/NumElements == 4)
+                if (TryUnsafe == true &&
+                    (InnerProperty.PropertySize/NumElements > 24 ||
+                     InnerProperty.PropertySize/NumElements == 16 ||
+                     InnerProperty.PropertySize/NumElements == 8 ||
+                     InnerProperty.PropertySize/NumElements == 4))
                 {
                     InnerProperty.PropertySize /= NumElements;
                     for (unsigned i = 0; i < NumElements; ++i)
@@ -211,11 +200,46 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
            << FormatHEX(X) << ", " << FormatHEX(Y) << ") = ("
            << X << ", " << Y << ")" << std::endl;
     }
+    else if (Type == "Guid")
+    {
+        FGuid GUID;
+        stream.read(reinterpret_cast<char*>(&GUID), sizeof(GUID));
+        ss << "\tGUID = " << FormatHEX(GUID) << std::endl;
+    }
+    else if (Type == "Color")
+    {
+        uint8_t R, G, B, A;
+        stream.read(reinterpret_cast<char*>(&B), sizeof(B));
+        stream.read(reinterpret_cast<char*>(&G), sizeof(G));
+        stream.read(reinterpret_cast<char*>(&R), sizeof(R));
+        stream.read(reinterpret_cast<char*>(&A), sizeof(A));
+        ss << "\tColor (R, G, B, A) = ("
+           << FormatHEX(R) << ", " << FormatHEX(G) << ", " << FormatHEX(B) << ", " << FormatHEX(A) << ") = ("
+           << (unsigned)R << ", " << (unsigned)G << ", " << (unsigned)B << ", " << (unsigned)A << ")" << std::endl;
+    }
+    else if (Type == "LinearColor")
+    {
+        float R, G, B, A;
+        stream.read(reinterpret_cast<char*>(&B), sizeof(B));
+        stream.read(reinterpret_cast<char*>(&G), sizeof(G));
+        stream.read(reinterpret_cast<char*>(&R), sizeof(R));
+        stream.read(reinterpret_cast<char*>(&A), sizeof(A));
+        ss << "\tLinearColor (R, G, B, A) = ("
+           << FormatHEX(R) << ", " << FormatHEX(G) << ", " << FormatHEX(B) << ", " << FormatHEX(A) << ") = ("
+           << R << ", " << G << ", " << B << ", " << A << ")" << std::endl;
+    }
     /// if it is big, it might be inner property list
     else if(TryUnsafe == true && PropertySize > 24)
     {
         UDefaultPropertiesList SomeProperties;
         ss << "Unsafe guess (it's a Property List):\n" << SomeProperties.Deserialize(stream, info, OwnerRef, true, false);
+    }
+    /// Guid?
+    else if(TryUnsafe == true && PropertySize == 16)
+    {
+        FGuid GUID;
+        stream.read(reinterpret_cast<char*>(&GUID), sizeof(GUID));
+        ss << "\tUnsafe guess: GUID = " << FormatHEX(GUID) << std::endl;
     }
     /// if it is small, it might be NameIndex
     else if(TryUnsafe == true && PropertySize == 8)
@@ -237,6 +261,7 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     else
     {
         //stream.seekg(PropertySize, std::ios::cur);
+        //ss << "\tUnknown property!\n";
         std::vector<char> unk(PropertySize);
         stream.read(unk.data(), unk.size());
         ss << "\tUnknown property: " << FormatHEX(unk) << std::endl;
@@ -312,6 +337,7 @@ std::string UObject::Deserialize(std::istream& stream, UPKInfo& info)
         if (TryUnsafe == true && ThisRef > 0 && (ThisTableEntry.ObjectFlagsL & (uint32_t)UObjectFlagsL::HasStack))
         {
             stream.seekg(22, std::ios::cur);
+            ss << "Can't deserialize stack: skipping!\n";
         }
         ss << DefaultProperties.Deserialize(stream, info, ThisRef, TryUnsafe, QuickMode);
     }
@@ -760,12 +786,26 @@ std::string UMapProperty::Deserialize(std::istream& stream, UPKInfo& info)
 std::string UObjectUnknown::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
+    /// prevent crashes while deserializing components
+    if (info.GetExportEntry(ThisRef).Type.find("Component") != std::string::npos)
+    {
+        ss << "Can't deserialize Components!\n";
+        return ss.str();
+    }
+    /// prevent crashes while deserializing FX_
+    if (info.GetExportEntry(ThisRef).Type.find("BodySetup") != std::string::npos)
+    {
+        ss << "Can't deserialize BodySetup!\n";
+        return ss.str();
+    }
     /// to be on a safe side: don't deserialize unknown objects
     if (TryUnsafe == true)
     {
         ss << UObject::Deserialize(stream, info);
         uint32_t pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
-        ss << "Stream relative position: " << FormatHEX(pos) << " (" << pos << ")\n";
+        ss << "Stream relative position (debug info): " << FormatHEX(pos) << " (" << pos << ")\n";
+        if (pos == info.GetExportEntry(ThisRef).SerialSize)
+            return ss.str();
     }
     ss << "UObjectUnknown:\n";
     ss << "\tObject unknown, can't deserialize!\n";
