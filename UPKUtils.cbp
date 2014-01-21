@@ -46,6 +46,42 @@
 				<Option compiler="gcc" />
 				<Option parameters="XComStrategyGame.upk" />
 			</Target>
+			<Target title="DeserializeAll">
+				<Option output="bin/DeserializeAll" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/DeserializeAll" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+				<Compiler>
+					<Add directory="$(#wx)/include" />
+					<Add directory="$(#wx)/lib/gcc_lib/mswu" />
+				</Compiler>
+				<Linker>
+					<Add library="$(#wx)\lib\gcc_lib\libwxmsw30u.a" />
+					<Add library="$(#wx)\lib\gcc_lib\libwxtiff.a" />
+					<Add library="$(#wx)\lib\gcc_lib\libwxjpeg.a" />
+					<Add library="$(#wx)\lib\gcc_lib\libwxpng.a" />
+					<Add library="$(#wx)\lib\gcc_lib\libwxzlib.a" />
+					<Add library="$(#wx)\lib\gcc_lib\libwxregexu.a" />
+					<Add library="$(#wx)\lib\gcc_lib\libwxexpat.a" />
+					<Add library="kernel32" />
+					<Add library="user32" />
+					<Add library="gdi32" />
+					<Add library="comdlg32" />
+					<Add library="winspool" />
+					<Add library="winmm" />
+					<Add library="shell32" />
+					<Add library="comctl32" />
+					<Add library="ole32" />
+					<Add library="oleaut32" />
+					<Add library="uuid" />
+					<Add library="rpcrt4" />
+					<Add library="advapi32" />
+					<Add library="wsock32" />
+					<Add directory="$(#wx)/lib/gcc_lib/mswu" />
+				</Linker>
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-std=c++11" />
@@ -56,6 +92,9 @@
 			<Add option="-static-libgcc" />
 			<Add option="-static-libstdc++" />
 		</Linker>
+		<Unit filename="DeserializeAll.cpp">
+			<Option target="DeserializeAll" />
+		</Unit>
 		<Unit filename="ExtractNameLists.cpp">
 			<Option target="ExtractNameLists" />
 		</Unit>
@@ -88,21 +127,25 @@
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
+			<Option target="DeserializeAll" />
 		</Unit>
 		<Unit filename="UObject.h">
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
+			<Option target="DeserializeAll" />
 		</Unit>
 		<Unit filename="UObjectFactory.cpp">
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
+			<Option target="DeserializeAll" />
 		</Unit>
 		<Unit filename="UObjectFactory.h">
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
+			<Option target="DeserializeAll" />
 		</Unit>
 		<Unit filename="UPKInfo.cpp" />
 		<Unit filename="UPKInfo.h" />
@@ -110,11 +153,13 @@
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="FindObjectEntry" />
+			<Option target="DeserializeAll" />
 		</Unit>
 		<Unit filename="UPKUtils.h">
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="FindObjectEntry" />
+			<Option target="DeserializeAll" />
 		</Unit>
 		<Extensions>
 			<code_completion />
