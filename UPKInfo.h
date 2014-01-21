@@ -178,6 +178,7 @@ class UPKInfo
         bool IsNoneIdx(UNameIndex idx) { return (idx.NameTableIdx == NoneIdx); }
         /// Getters
         const FObjectExport& GetExportEntry(uint32_t idx);
+        const std::vector<FObjectExport>& GetExportTable() { return ExportTable; }
         const FObjectImport& GetImportEntry(uint32_t idx);
         const FNameEntry& GetNameEntry(uint32_t idx);
         FGuid GetGUID() { return Summary.GUID; }
