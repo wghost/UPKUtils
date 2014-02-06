@@ -586,6 +586,11 @@ bool ModScript::WriteModdedFile(const std::string& Param)
         {
             if (SetObject(FileName + Spec) == false)
                 return SetBad();
+            if (DataChunk.size() != ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize)
+            {
+                if (ScriptState.Behaviour == "AUTO")
+                    ScriptState.Behaviour = "MOVE";
+            }
         }
         else
         {
@@ -781,14 +786,30 @@ bool ModScript::SetDataChunkOffset(const std::string& Param)
     if (ScriptState.Scope == UPKScope::Package)
     {
         ScriptState.Offset = ScriptState.Package.FindDataChunk(DataChunk);
-        *ExecutionResults << "Data found!\nGlobal offset: " << FormatHEX(ScriptState.Offset)
-                          << " (" << ScriptState.Offset << ")" << std::endl;
+        if (ScriptState.Offset != 0)
+        {
+            *ExecutionResults << "Data found!\nGlobal offset: " << FormatHEX(ScriptState.Offset)
+                              << " (" << ScriptState.Offset << ")" << std::endl;
+        }
+        else
+        {
+            *ErrorMessages << "Can't find specified data!\n";
+            return SetBad();
+        }
     }
     else
     {
         ScriptState.RelOffset = ScriptState.Package.FindDataChunk(DataChunk, ScriptState.Offset);
-        *ExecutionResults << "Data found!\nRelative offset: " << FormatHEX(ScriptState.RelOffset)
-                          << " (" << ScriptState.RelOffset << ")" << std::endl;
+        if (ScriptState.Offset != 0)
+        {
+            *ExecutionResults << "Data found!\nRelative offset: " << FormatHEX(ScriptState.RelOffset)
+                              << " (" << ScriptState.RelOffset << ")" << std::endl;
+        }
+        else
+        {
+            *ErrorMessages << "Can't find specified data!\n";
+            return SetBad();
+        }
     }
     if (ScriptState.Package.CheckValidFileOffset(ScriptState.Offset + ScriptState.RelOffset) == false)
     {
