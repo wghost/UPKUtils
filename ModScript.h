@@ -7,6 +7,16 @@
 #include "ModParser.h"
 #include "UPKUtils.h"
 
+enum class UPKScope
+{
+    Package = 0,
+    Name = 1,
+    Import = 2,
+    Export = 3,
+    Object = 4
+};
+std::string FormatUPKScope(UPKScope scope);
+
 class ModScript
 {
 public:
@@ -54,10 +64,11 @@ protected:
         uint32_t ObjIdx;
         size_t Offset;
         size_t RelOffset;
+        size_t MaxOffset;
         std::string Behaviour;
         bool Good;
     } ScriptState;
-    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.Behaviour = "KEEP"; }
+    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.MaxOffset = 0; ScriptState.Behaviour = "KEEP"; }
     bool SetBad() { return (ScriptState.Good = false); }
     bool SetGood() { return (ScriptState.Good = true); }
     void AddUPKName(std::string upkname);
@@ -74,6 +85,7 @@ protected:
     bool SetExportEntry(const std::string& Param);
     bool SetRelOffset(const std::string& Param);
     bool WriteModdedHEX(const std::string& Param);
+    //bool WriteScriptHEX(const std::string& Param);
     bool WriteUndoMoveResize(const std::string& Param);
     bool WriteModdedFile(const std::string& Param);
     bool WriteByteValue(const std::string& Param);
@@ -88,9 +100,10 @@ protected:
     /// end-of-block indicators are just skipped, as they don't actually used
     bool Sink(const std::string& Param);
     /// helpers
-    bool CheckMoveResize(size_t DataSize, bool& wasMoved);
-    bool MoveResize(size_t ObjSize);
-    bool WriteBinaryData(const std::vector<char>& DataChunk, bool wasMoved = false);
+    bool CheckMoveResize(size_t DataSize);
+    bool WriteBinaryData(const std::vector<char>& DataChunk);
+    bool IsInsideScope(size_t DataSize = 1);
+    size_t GetDiff(size_t DataSize);
 };
 
 #endif // MODSCRIPT_H

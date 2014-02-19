@@ -2,25 +2,6 @@
 
 #include <cstring>
 
-std::string FormatUPKScope(UPKScope scope)
-{
-    switch (scope)
-    {
-    case UPKScope::Package:
-        return "Package";
-    case UPKScope::Name:
-        return "Name Table";
-    case UPKScope::Import:
-        return "Import Table";
-    case UPKScope::Export:
-        return "Export Table";
-    case UPKScope::Object:
-        return "Object Data";
-    default:
-        return "";
-    }
-}
-
 uint8_t PatchUPKhash [] = {0x7A, 0xA0, 0x56, 0xC9,
                            0x60, 0x5F, 0x7B, 0x31,
                            0x72, 0x5D, 0x4B, 0xC4,
@@ -79,7 +60,7 @@ void UPKUtils::SaveExportData(uint32_t idx)
     out.write(dataChunk.data(), dataChunk.size());
 }
 
-/// legacy function, non-safe behaviour!
+/// relatively safe behaviour
 bool UPKUtils::MoveExportData(uint32_t idx, uint32_t newObjectSize)
 {
     if (idx < 1 || idx >= ExportTable.size())
@@ -150,7 +131,7 @@ bool UPKUtils::UndoMoveExportData(uint32_t idx)
     return true;
 }
 
-bool UPKUtils::MoveResizeObject(uint32_t idx, int newObjectSize)
+bool UPKUtils::MoveResizeObject(uint32_t idx, int newObjectSize, int resizeAt)
 {
     if (idx < 1 || idx >= ExportTable.size())
         return false;
@@ -162,7 +143,23 @@ bool UPKUtils::MoveResizeObject(uint32_t idx, int newObjectSize)
     {
         UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*8);
         UPKFile.write(reinterpret_cast<char*>(&newObjectSize), sizeof(newObjectSize));
-        data.resize(newObjectSize, 0);
+        /// if resizing occurs at the middle of an object
+        if (resizeAt > 0 && resizeAt < newObjectSize)
+        {
+            int diff = newObjectSize - data.size();
+            std::vector<char> newData(newObjectSize);
+            memset(newData.data(), 0, newObjectSize); /// fill with zeros
+            memcpy(newData.data(), data.data(), resizeAt); /// copy head
+            if (diff > 0) /// if expanding
+                memcpy(newData.data() + resizeAt + diff, data.data() + resizeAt, data.size() - resizeAt);
+            else /// if shrinking
+                memcpy(newData.data() + resizeAt, data.data() + resizeAt - diff, data.size() - (resizeAt - diff));
+            data = newData;
+        }
+        else
+        {
+            data.resize(newObjectSize, 0);
+        }
     }
     UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*9);
     UPKFile.write(reinterpret_cast<char*>(&newObjectOffset), sizeof(newObjectOffset));
@@ -218,90 +215,6 @@ bool UPKUtils::CheckValidFileOffset(size_t offset)
     }
     /// does not allow to change package signature and version
     return (offset >= 8 && offset < UPKFileSize);
-}
-
-bool UPKUtils::CheckValidRelOffset(size_t relOffset, UPKScope scope, uint32_t idx)
-{
-    if (IsLoaded() == false)
-    {
-        return false;
-    }
-    else if (scope == UPKScope::Package)
-    {
-        return CheckValidFileOffset(relOffset);
-    }
-    else
-    {
-        if (scope == UPKScope::Name)
-        {
-            return (relOffset < NameTable[idx].EntrySize);
-        }
-        else
-        {
-            if (idx == 0)
-            {
-                return false;
-            }
-            else if (scope == UPKScope::Import)
-            {
-                return (relOffset < ImportTable[idx].EntrySize);
-            }
-            else if (scope == UPKScope::Export)
-            {
-                return (relOffset < ExportTable[idx].EntrySize);
-            }
-            else if (scope == UPKScope::Object)
-            {
-                return (relOffset < ExportTable[idx].SerialSize);
-            }
-            else
-            {
-                return false;
-            }
-        }
-    }
-}
-
-bool UPKUtils::CheckValidOffset(size_t offset, UPKScope scope, uint32_t idx)
-{
-    if (IsLoaded() == false)
-    {
-        return false;
-    }
-    else if (scope == UPKScope::Package)
-    {
-        return CheckValidFileOffset(offset);
-    }
-    else
-    {
-        if (scope == UPKScope::Name)
-        {
-            return CheckValidRelOffset(offset - NameTable[idx].EntryOffset, scope, idx);
-        }
-        else
-        {
-            if (idx == 0)
-            {
-                return false;
-            }
-            else if (scope == UPKScope::Import)
-            {
-                return CheckValidRelOffset(offset - ImportTable[idx].EntryOffset, scope, idx);
-            }
-            else if (scope == UPKScope::Export)
-            {
-                return CheckValidRelOffset(offset - ExportTable[idx].EntryOffset, scope, idx);
-            }
-            else if (scope == UPKScope::Object)
-            {
-                return CheckValidRelOffset(offset - ExportTable[idx].SerialOffset, scope, idx);
-            }
-            else
-            {
-                return false;
-            }
-        }
-    }
 }
 
 bool UPKUtils::WriteExportData(uint32_t idx, std::vector<char> data, std::vector<char> *backupData)
@@ -361,10 +274,13 @@ bool UPKUtils::WriteData(size_t offset, std::vector<char> data, std::vector<char
     return true;
 }
 
-size_t UPKUtils::FindDataChunk(std::vector<char> data, size_t beg)
+size_t UPKUtils::FindDataChunk(std::vector<char> data, size_t beg, size_t limit)
 {
-    size_t offset = 0, idx = 0;
-    std::vector<char> fileBuf(UPKFileSize - beg);
+    if (limit != 0 && (limit - beg < data.size() || limit < beg))
+        return 0;
+    size_t offset = 0, idx = beg;
+    bool found = false;
+    std::vector<char> fileBuf((limit == 0 ? UPKFileSize : limit) - beg);
 
     UPKFile.seekg(beg);
     UPKFile.read(fileBuf.data(), fileBuf.size());
@@ -376,15 +292,77 @@ size_t UPKUtils::FindDataChunk(std::vector<char> data, size_t beg)
     {
         if (memcmp(p, pData, data.size()) == 0)
         {
+            found = true;
             offset = idx;
             break;
         }
         ++idx;
     }
 
+    if (found == false)
+        offset = 0;
+
     UPKFile.clear();
     UPKFile.seekg(0);
     return offset;
+}
+
+size_t UPKUtils::GetScriptSize(uint32_t idx)
+{
+    if (idx < 1 || idx >= ExportTable.size())
+        return 0;
+    UObject* Obj;
+    Obj = UObjectFactory::Create(ExportTable[idx].Type);
+    if (Obj == nullptr)
+        return 0;
+    UPKFile.seekg(ExportTable[idx].SerialOffset);
+    Obj->SetRef(idx);
+    Obj->SetUnsafe(false);
+    Obj->SetQuickMode(true);
+    Obj->Deserialize(UPKFile, *dynamic_cast<UPKInfo*>(this));
+    if (Obj->IsStructure() == false)
+    {
+        delete Obj;
+        return 0;
+    }
+    UStruct* St = dynamic_cast<UStruct*>(Obj);
+    if (St == nullptr)
+    {
+        delete Obj;
+        return 0;
+    }
+    size_t ScriptSize = St->GetScriptSerialSize();
+    delete Obj;
+    return ScriptSize;
+}
+
+size_t UPKUtils::GetScriptRelOffset(uint32_t idx)
+{
+    if (idx < 1 || idx >= ExportTable.size())
+        return 0;
+    UObject* Obj;
+    Obj = UObjectFactory::Create(ExportTable[idx].Type);
+    if (Obj == nullptr)
+        return 0;
+    UPKFile.seekg(ExportTable[idx].SerialOffset);
+    Obj->SetRef(idx);
+    Obj->SetUnsafe(false);
+    Obj->SetQuickMode(true);
+    Obj->Deserialize(UPKFile, *dynamic_cast<UPKInfo*>(this));
+    if (Obj->IsStructure() == false)
+    {
+        delete Obj;
+        return 0;
+    }
+    UStruct* St = dynamic_cast<UStruct*>(Obj);
+    if (St == nullptr)
+    {
+        delete Obj;
+        return 0;
+    }
+    size_t ScriptRelOffset = St->GetScriptOffset() - ExportTable[idx].SerialOffset;
+    delete Obj;
+    return ScriptRelOffset;
 }
 
 /*bool UPKUtils::AddNameListEntry(NameListEntry entry)
