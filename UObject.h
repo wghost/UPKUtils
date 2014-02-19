@@ -136,6 +136,8 @@ public:
     ~UStruct() {}
     std::string Deserialize(std::istream& stream, UPKInfo& info);
     bool IsStructure() { return true; }
+    uint32_t GetScriptSerialSize() { return ScriptSerialSize; }
+    uint32_t GetScriptOffset() { return ScriptOffset; }
 protected:
     /// persistent
     UObjectReference ScriptTextRef;
@@ -149,6 +151,7 @@ protected:
     /// memory
     size_t StructOffset;
     size_t StructSize;
+    size_t ScriptOffset;
 };
 
 class UFunction: public UStruct

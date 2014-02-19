@@ -391,6 +391,7 @@ std::string UStruct::Deserialize(std::istream& stream, UPKInfo& info)
     if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
         return ss.str();
     DataScript.resize(ScriptSerialSize);
+    ScriptOffset = stream.tellg();
     stream.read(DataScript.data(), DataScript.size());
     ss << "\tScript decompiler is not implemented!\n";
     StructSize = (unsigned)stream.tellg() - (unsigned)StructOffset;
