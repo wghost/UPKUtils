@@ -16,7 +16,7 @@ float GetFloatValue(const std::string& TextBuffer);
 class ModParser
 {
 public:
-    ModParser(): commentBegin(0), commentEnd(0), commentLine(0), isKey(false), isSection(false), Name(""), Value(""), Index(-1) {}
+    ModParser(): commentBegin(0), commentEnd(0), commentLine(0), isKey(false), isSection(false), Name(""), Value(""), Index(-1), CStyleComments(true) {}
     ~ModParser() {}
     /// keys, sections and comments
     void AddKeyName(std::string name);
@@ -28,6 +28,7 @@ public:
     void SetCommentMarkers(char begMarker, char endMarker, char lineMarker);
     /// init
     bool OpenModFile(const char* name);
+    void UseCStyleComments(bool val) { CStyleComments = val; }
     /// find next key or section, set read pointer at the beginning of the line
     int FindNext();
     /// Getters
@@ -60,6 +61,7 @@ private:
     std::string Name;
     std::string Value;
     int Index;
+    bool CStyleComments;
 };
 
 #endif // MODPARSER_H

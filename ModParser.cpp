@@ -180,18 +180,34 @@ std::string ModParser::GetLine()
         ch = modFile.get();
         if (modFile.fail() || modFile.bad())
             break;
-        if (ch == commentLine)
+        if (CStyleComments && ch == '/' && modFile.peek() == '/')
         {
             while (ch != 0x0D && ch != 0x0A && modFile.good())
                 ch = modFile.get();
-            break;
         }
-        if (ch == commentBegin)
+        else if (CStyleComments && ch == '/' && modFile.peek() == '*')
+        {
+            while (modFile.good())
+            {
+                ch = modFile.get();
+                if (ch == '*' && modFile.peek() == '/')
+                {
+                    ch = modFile.get();
+                    break;
+                }
+            }
+        }
+        else if (ch == commentLine)
+        {
+            while (ch != 0x0D && ch != 0x0A && modFile.good())
+                ch = modFile.get();
+        }
+        else if (ch == commentBegin)
         {
             while (ch != commentEnd && modFile.good())
                 ch = modFile.get();
         }
-        else if (ch != 0x0D && ch != 0x0A)
+        else if (ch != 0x0D && ch != 0x0A && modFile.good())
         {
             line += ch;
         }
