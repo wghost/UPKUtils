@@ -177,6 +177,7 @@ class UPKInfo
         UObjectReference FindObjectByOffset(size_t offset);
         bool IsNoneIdx(UNameIndex idx) { return (idx.NameTableIdx == NoneIdx); }
         /// Getters
+        const FPackageFileSummary& GetSummary() { return Summary; }
         const FObjectExport& GetExportEntry(uint32_t idx);
         const std::vector<FObjectExport>& GetExportTable() { return ExportTable; }
         const FObjectImport& GetImportEntry(uint32_t idx);

@@ -82,8 +82,17 @@
 					<Add directory="$(#wx)/lib/gcc_lib/mswu" />
 				</Linker>
 			</Target>
+			<Target title="CompareUPK">
+				<Option output="bin/CompareUPK" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/CompareUPK" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
 		</Build>
 		<Compiler>
+			<Add option="-O2" />
 			<Add option="-std=c++11" />
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
@@ -92,6 +101,9 @@
 			<Add option="-static-libgcc" />
 			<Add option="-static-libstdc++" />
 		</Linker>
+		<Unit filename="CompareUPK.cpp">
+			<Option target="CompareUPK" />
+		</Unit>
 		<Unit filename="DeserializeAll.cpp">
 			<Option target="DeserializeAll" />
 		</Unit>

@@ -276,11 +276,11 @@ bool UPKUtils::WriteData(size_t offset, std::vector<char> data, std::vector<char
 
 size_t UPKUtils::FindDataChunk(std::vector<char> data, size_t beg, size_t limit)
 {
-    if (limit != 0 && (limit - beg < data.size() || limit < beg))
+    if (limit != 0 && (limit - beg + 1 < data.size() || limit < beg))
         return 0;
     size_t offset = 0, idx = beg;
     bool found = false;
-    std::vector<char> fileBuf((limit == 0 ? UPKFileSize : limit) - beg);
+    std::vector<char> fileBuf((limit == 0 ? UPKFileSize : limit) - beg + 1);
 
     UPKFile.seekg(beg);
     UPKFile.read(fileBuf.data(), fileBuf.size());
@@ -288,7 +288,7 @@ size_t UPKUtils::FindDataChunk(std::vector<char> data, size_t beg, size_t limit)
     char* pFileBuf = fileBuf.data();
     char* pData = data.data();
 
-    for (char* p = pFileBuf; p != pFileBuf + fileBuf.size() - data.size(); ++p)
+    for (char* p = pFileBuf; p != pFileBuf + fileBuf.size() - data.size() + 1; ++p)
     {
         if (memcmp(p, pData, data.size()) == 0)
         {

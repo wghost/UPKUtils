@@ -85,7 +85,9 @@ protected:
     bool SetExportEntry(const std::string& Param);
     bool SetRelOffset(const std::string& Param);
     bool WriteModdedHEX(const std::string& Param);
-    //bool WriteScriptHEX(const std::string& Param);
+    bool WriteModdedCode(const std::string& Param);
+    bool WriteReplacementCode(const std::string& Param);
+    bool WriteInsertCode(const std::string& Param);
     bool WriteUndoMoveResize(const std::string& Param);
     bool WriteModdedFile(const std::string& Param);
     bool WriteByteValue(const std::string& Param);
@@ -94,6 +96,7 @@ protected:
     bool WriteUnsignedValue(const std::string& Param);
     bool WriteRename(const std::string& Param);
     bool SetDataChunkOffset(const std::string& Param);
+    bool SetCodeOffset(const std::string& Param);
     bool WriteMoveExpandLegacy(const std::string& Param);
     bool WriteNameIdx(const std::string& Param);
     bool WriteObjectIdx(const std::string& Param);
@@ -101,9 +104,16 @@ protected:
     bool Sink(const std::string& Param);
     /// helpers
     bool CheckMoveResize(size_t DataSize);
+    bool MoveResizeAtRelOffset(int ObjSize);
     bool WriteBinaryData(const std::vector<char>& DataChunk);
     bool IsInsideScope(size_t DataSize = 1);
     size_t GetDiff(size_t DataSize);
+    /// parse script
+    std::string ParseScript(std::string ScriptData, unsigned* ScriptMemSizeRef = nullptr);
+    bool IsHEX(std::string word);
+    bool IsToken(std::string word);
+    bool IsCommand(std::string word);
+    std::string TokenToHEX(std::string Token, unsigned* MemSizeRef = nullptr);
 };
 
 #endif // MODSCRIPT_H
