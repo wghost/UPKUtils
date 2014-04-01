@@ -55,6 +55,7 @@ protected:
     std::map<std::string, std::string> BackupScript;
     std::multimap<std::string, std::string> GUIDs;
     std::vector<std::string> UPKNames;
+    std::map<std::string, std::string> Alias;
     void SetExecutors(); /// map names to keys/sections and functions
     struct
     {
@@ -100,6 +101,7 @@ protected:
     bool WriteMoveExpandLegacy(const std::string& Param);
     bool WriteNameIdx(const std::string& Param);
     bool WriteObjectIdx(const std::string& Param);
+    bool AddAlias(const std::string& Param);
     /// end-of-block indicators are just skipped, as they don't actually used
     bool Sink(const std::string& Param);
     /// helpers

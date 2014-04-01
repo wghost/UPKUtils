@@ -56,6 +56,9 @@ void ModScript::SetExecutors()
     Parser.AddKeyName("IMPORT_ENTRY");
     Executors.insert({"EXPORT_ENTRY", &ModScript::SetExportEntry});
     Parser.AddKeyName("EXPORT_ENTRY");
+    /// Scripting
+    Executors.insert({"ALIAS", &ModScript::AddAlias});
+    Parser.AddKeyName("ALIAS");
     /// Relative offset
     Executors.insert({"REL_OFFSET", &ModScript::SetRelOffset});
     Parser.AddKeyName("REL_OFFSET");
@@ -124,6 +127,14 @@ void ModScript::SetExecutors()
     Parser.AddSectionName("[AFTER_CODE]");
     Executors.insert({"[/AFTER_CODE]", &ModScript::Sink});
     Parser.AddSectionName("[/AFTER_CODE]");
+    Executors.insert({"[FIND_HEX]", &ModScript::SetDataChunkOffset}); /// is scope-aware
+    Parser.AddSectionName("[FIND_HEX]");
+    Executors.insert({"[/FIND_HEX]", &ModScript::Sink});
+    Parser.AddSectionName("[/FIND_HEX]");
+    Executors.insert({"[FIND_CODE]", &ModScript::SetCodeOffset}); /// is scope-aware
+    Parser.AddSectionName("[FIND_CODE]");
+    Executors.insert({"[/FIND_CODE]", &ModScript::Sink});
+    Parser.AddSectionName("[/FIND_CODE]");
     /// deprecated keys
     Executors.insert({"FUNCTION", &ModScript::SetObject}); /// legacy support - OBJECT alias
     Parser.AddKeyName("FUNCTION");                         /// legacy support - OBJECT alias
@@ -1083,6 +1094,36 @@ std::string ModScript::GetBackupScript()
     return ss.str();
 }
 
+bool ModScript::AddAlias(const std::string& Param)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    std::string Name, Replacement;
+    size_t pos = Param.find(':');
+    if (pos == std::string::npos)
+    {
+        *ErrorMessages << "Bad key value: " << Param << std::endl;
+        return SetBad();
+    }
+    Name = Param.substr(0, pos);
+    Replacement = Param.substr(pos + 1);
+    if (ScriptState.Scope == UPKScope::Object)
+    {
+        Name = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName + '.' + Name;
+    }
+    if (Alias.count(Name) != 0)
+    {
+        *ErrorMessages << "Alias is already defined: " << Name << std::endl;
+        return SetBad();
+    }
+    Alias[Name] = Replacement;
+    *ExecutionResults << "Alias added successfully: " << Name << std::endl;
+    return SetGood();
+}
+
 std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSizeRef)
 {
     std::ostringstream ScriptHEX;
@@ -1208,7 +1249,28 @@ std::string ModScript::TokenToHEX(std::string Token, unsigned* MemSizeRef)
     std::string Code = Token.substr(1, Token.length()-2); /// remove <>
     unsigned MemSize = 1;
     std::vector<char> dataChunk;
-    if (Code[0] == '%')
+    if (Code[0] == '!') /// parse alias
+    {
+        std::string Name = Code.substr(1);
+        if (ScriptState.Scope == UPKScope::Object)
+        {
+            Name = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName + '.' + Name;
+            if (Alias.count(Name) == 0)
+            {
+                Name = Code.substr(1);
+            }
+        }
+        if (Alias.count(Name) == 0)
+        {
+            *ErrorMessages << "Alias does not exist: " << Name << std::endl;
+            SetBad();
+            return std::string("");
+        }
+        std::string replacement = Alias[Name];
+        std::string parsed = ParseScript(replacement, &MemSize);
+        dataChunk = GetDataChunk(parsed);
+    }
+    else if (Code[0] == '%')
     {
         if (Code[1] == 'f')
         {
@@ -1265,6 +1327,28 @@ std::string ModScript::TokenToHEX(std::string Token, unsigned* MemSizeRef)
             SetBad();
             return std::string("");
         }
+    }
+    else if (Code[0] == '@') /// member variable reference
+    {
+        if (ScriptState.Scope != UPKScope::Object)
+        {
+            *ErrorMessages << "Can't use member variable references outside Object scope: " << Code << std::endl;
+            SetBad();
+            return std::string("");
+        }
+        std::string ObjName = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName;
+        std::string ClassName = ObjName.substr(0, ObjName.find('.'));
+        std::string VarName = ClassName + '.' + Code.substr(1);
+        UObjectReference ObjRef = ScriptState.Package.FindObject(VarName, true);
+        if (ObjRef == 0)
+        {
+            *ErrorMessages << "Bad object name: " << VarName << std::endl;
+            SetBad();
+            return std::string("");
+        }
+        dataChunk.resize(4);
+        memcpy(dataChunk.data(), reinterpret_cast<char*>(&ObjRef), 4);
+        MemSize = 8;
     }
     else if (Code.find(".") != std::string::npos)
     {
