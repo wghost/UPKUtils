@@ -29,6 +29,7 @@
 			</Target>
 		</Build>
 		<Compiler>
+			<Add option="-std=c++11" />
 			<Add option="-Wall" />
 			<Add option="-D__GNUWIN32__" />
 			<Add option="-D__WXMSW__" />
@@ -70,11 +71,14 @@
 		<Unit filename="PatcherGUIMain.h" />
 		<Unit filename="SettingsDialog.cpp" />
 		<Unit filename="SettingsDialog.h" />
+		<Unit filename="ViewLog.cpp" />
+		<Unit filename="ViewLog.h" />
 		<Unit filename="resource.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
 		<Unit filename="wxsmith/PatcherGUIframe.wxs" />
 		<Unit filename="wxsmith/SettingsDialog.wxs" />
+		<Unit filename="wxsmith/ViewLog.wxs" />
 		<Extensions>
 			<code_completion />
 			<envvars />
@@ -84,6 +88,7 @@
 				<resources>
 					<wxFrame wxs="wxsmith/PatcherGUIframe.wxs" src="PatcherGUIMain.cpp" hdr="PatcherGUIMain.h" fwddecl="0" i18n="1" name="PatcherGUIFrame" language="CPP" />
 					<wxDialog wxs="wxsmith/SettingsDialog.wxs" src="SettingsDialog.cpp" hdr="SettingsDialog.h" fwddecl="0" i18n="1" name="SettingsDialog" language="CPP" />
+					<wxDialog wxs="wxsmith/ViewLog.wxs" src="ViewLog.cpp" hdr="ViewLog.h" fwddecl="0" i18n="1" name="ViewLog" language="CPP" />
 				</resources>
 			</wxsmith>
 			<DoxyBlocks>

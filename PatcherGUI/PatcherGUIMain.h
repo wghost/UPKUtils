@@ -42,6 +42,8 @@ class PatcherGUIFrame: public wxFrame
         wxArrayString FilesToRemove;
         wxArrayString FilesToDecompress;
         wxString curBackupPathString;
+        wxArrayString InstList, UninstList;
+        wxString InstLogName;
 
         bool RestoreFromBackup();
         bool MakeBackups();
@@ -52,6 +54,13 @@ class PatcherGUIFrame: public wxFrame
 
         bool NeedDecompression(wxString filename);
 
+        void OpenModFile(wxString FilePath);
+        void LoadLogs();
+        void SaveLogs();
+        unsigned FindUninstallFileIdx(wxString UninstallFile);
+        unsigned FindInstallFileIdx(wxString InstallFile);
+        wxString GetLatestUninstallFile(wxString InstallFile);
+
         //(*Handlers(PatcherGUIFrame)
         void OnSaveModFile(wxCommandEvent& event);
         void OnSaveModFileAs(wxCommandEvent& event);
@@ -60,6 +69,7 @@ class PatcherGUIFrame: public wxFrame
         void OnSelectModFile(wxCommandEvent& event);
         void OnChangeSettings(wxCommandEvent& event);
         void OnClose(wxCloseEvent& event);
+        void OnShowLog(wxCommandEvent& event);
         //*)
 
         //(*Identifiers(PatcherGUIFrame)
@@ -71,12 +81,14 @@ class PatcherGUIFrame: public wxFrame
         static const long ID_BUTTON1;
         static const long ID_BUTTON7;
         static const long ID_BUTTON2;
+        static const long ID_BUTTON4;
         static const long ID_BUTTON5;
         static const long ID_TEXTCTRL3;
         static const long ID_PANEL1;
         //*)
 
         //(*Declarations(PatcherGUIFrame)
+        wxButton* Button4;
         wxRichTextCtrl* RichTextCtrl1;
         wxButton* Button1;
         wxPanel* Panel1;

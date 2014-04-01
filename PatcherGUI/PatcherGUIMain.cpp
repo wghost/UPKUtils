@@ -15,8 +15,10 @@
 #include <wx/dirdlg.h>
 #include <wx/filename.h>
 #include "SettingsDialog.h"
+#include "ViewLog.h"
 
 #include <fstream>
+#include <functional>
 
 //(*InternalHeaders(PatcherGUIFrame)
 #include <wx/bitmap.h>
@@ -35,6 +37,7 @@ const long PatcherGUIFrame::ID_RICHTEXTCTRL1 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON1 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON7 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON2 = wxNewId();
+const long PatcherGUIFrame::ID_BUTTON4 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON5 = wxNewId();
 const long PatcherGUIFrame::ID_TEXTCTRL3 = wxNewId();
 const long PatcherGUIFrame::ID_PANEL1 = wxNewId();
@@ -82,8 +85,10 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     BoxSizer3->Add(Button1, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button7 = new wxButton(Panel1, ID_BUTTON7, _("Save as..."), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON7"));
     BoxSizer3->Add(Button7, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
-    Button2 = new wxButton(Panel1, ID_BUTTON2, _("Install"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON2"));
+    Button2 = new wxButton(Panel1, ID_BUTTON2, _("Apply"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON2"));
     BoxSizer3->Add(Button2, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
+    Button4 = new wxButton(Panel1, ID_BUTTON4, _("Show log"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON4"));
+    BoxSizer3->Add(Button4, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button5 = new wxButton(Panel1, ID_BUTTON5, _("Settings"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON5"));
     BoxSizer3->Add(Button5, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     FlexGridSizer2->Add(BoxSizer3, 1, wxALL|wxALIGN_TOP|wxALIGN_CENTER_HORIZONTAL, 5);
@@ -103,6 +108,7 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     Connect(ID_BUTTON1,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFile);
     Connect(ID_BUTTON7,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFileAs);
     Connect(ID_BUTTON2,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnInstallMod);
+    Connect(ID_BUTTON4,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnShowLog);
     Connect(ID_BUTTON5,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnChangeSettings);
     Connect(wxID_ANY,wxEVT_CLOSE_WINDOW,(wxObjectEventFunction)&PatcherGUIFrame::OnClose);
     //*)
@@ -146,20 +152,17 @@ bool PatcherGUIFrame::LoadCFG()
     if (cfg.is_open())
     {
         std::string str = "";
-        //cfg >> str;
         getline(cfg, str);
         if (wxDirExists(str + "\\XComGame\\CookedPCConsole"))
         {
             TextCtrl1->SetValue(str);
             bSelectPath = true;
+            LoadLogs();
         }
-        //cfg >> str;
         getline(cfg, str);
         BackupPathString = str;
-        //cfg >> str;
         getline(cfg, str);
         PatchUPKprogram = str;
-        //cfg >> str;
         getline(cfg, str);
         DecompressProgram = str;
         return true;
@@ -229,6 +232,50 @@ void PatcherGUIFrame::OnSelectDirectory(wxCommandEvent& event)
 
     TextCtrl1->SetValue(dirDialog.GetPath());
     bSelectPath = true;
+    LoadLogs();
+}
+
+void PatcherGUIFrame::LoadLogs()
+{
+    InstList.Clear();
+    UninstList.Clear();
+    InstLogName = "";
+
+    std::hash<std::string> StrHash;
+    size_t HashVal = StrHash(TextCtrl1->GetValue().ToStdString());
+
+    InstLogName << wxGetCwd() << "\\Logs\\" << HashVal << "-log.txt";
+    if (wxFileExists(InstLogName) == false)
+        return;
+
+    std::ifstream instlog(InstLogName.c_str());
+    while (instlog.good())
+    {
+        std::string str = "";
+        getline(instlog, str);
+        if(instlog.eof() || str == "")
+            break;
+        InstList.Add(str);
+        getline(instlog, str);
+        UninstList.Add(str);
+    }
+}
+
+void PatcherGUIFrame::SaveLogs()
+{
+    if (!wxDirExists(wxGetCwd() + "\\Logs"))
+        if (!wxMkdir(wxGetCwd() + "\\Logs"))
+        {
+            wxMessageBox(_("Can't create logs dir!"), _("Error"), wxICON_ERROR | wxOK, this);
+            return;
+        }
+
+    std::ofstream instlog(InstLogName.c_str());
+    for (unsigned i = 0; i < InstList.GetCount(); ++i)
+    {
+        instlog << InstList[i] << std::endl;
+        instlog << UninstList[i] << std::endl;
+    }
 }
 
 void PatcherGUIFrame::OnSelectModFile(wxCommandEvent& event)
@@ -253,9 +300,14 @@ void PatcherGUIFrame::OnSelectModFile(wxCommandEvent& event)
     if (openFileDialog.ShowModal() == wxID_CANCEL)
         return;
 
-    TextCtrl2->SetValue(openFileDialog.GetPath());
-    RichTextCtrl1->SetFilename(openFileDialog.GetPath());
-    RichTextCtrl1->LoadFile(RichTextCtrl1->GetFilename(), wxRICHTEXT_TYPE_TEXT);
+    OpenModFile(openFileDialog.GetPath());
+}
+
+void PatcherGUIFrame::OpenModFile(wxString FilePath)
+{
+    TextCtrl2->SetValue(FilePath);
+    RichTextCtrl1->SetFilename(FilePath);
+    RichTextCtrl1->LoadFile(FilePath, wxRICHTEXT_TYPE_TEXT);
     bSelectFile = true;
 }
 
@@ -369,6 +421,62 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
         wxMessageBox(_("Patched successfully!"), _("Success"), wxICON_INFORMATION | wxOK, this);
 
     TextCtrl3->AppendText("\nMod applied successfully\n\n");
+
+    if (TextCtrl2->GetValue().Find(".uninstall") != wxNOT_FOUND)
+    {
+        unsigned idx = FindUninstallFileIdx(TextCtrl2->GetValue());
+        if (idx < UninstList.GetCount())
+        {
+            UninstList.RemoveAt(idx);
+            InstList.RemoveAt(idx);
+        }
+    }
+    else
+    {
+        unsigned idx = FindInstallFileIdx(TextCtrl2->GetValue());
+        if (idx == InstList.GetCount())
+        {
+            InstList.Add(TextCtrl2->GetValue());
+            UninstList.Add(GetLatestUninstallFile(TextCtrl2->GetValue()));
+        }
+    }
+    SaveLogs();
+}
+
+unsigned PatcherGUIFrame::FindUninstallFileIdx(wxString UninstallFile)
+{
+    for (unsigned i = 0; i < UninstList.GetCount(); ++i)
+    {
+        if (UninstList[i] == UninstallFile)
+            return i;
+    }
+    return UninstList.GetCount();
+}
+
+unsigned PatcherGUIFrame::FindInstallFileIdx(wxString InstallFile)
+{
+    for (unsigned i = 0; i < InstList.GetCount(); ++i)
+    {
+        if (InstList[i] == InstallFile)
+            return i;
+    }
+    return InstList.GetCount();
+}
+
+wxString PatcherGUIFrame::GetLatestUninstallFile(wxString InstallFile)
+{
+    wxString Name, prevName;
+    unsigned i = 0;
+    Name << InstallFile << ".uninstall.txt";
+    prevName = "Error.uninstall.txt";
+    while (wxFileExists(Name) == true)
+    {
+        ++i;
+        prevName = Name;
+        Name = "";
+        Name << InstallFile << ".uninstall" << i << ".txt";
+    }
+    return prevName;
 }
 
 bool PatcherGUIFrame::RestoreFromBackup()
@@ -531,4 +639,23 @@ void PatcherGUIFrame::OnChangeSettings(wxCommandEvent& event)
     PatchUPKprogram = dlg.TextCtrl3->GetValue();
     DecompressProgram = dlg.TextCtrl1->GetValue();
     //SaveCFG();
+}
+
+void PatcherGUIFrame::OnShowLog(wxCommandEvent& event)
+{
+    ViewLog dlg(this);
+
+    dlg.SetParams(TextCtrl1->GetValue(), InstList);
+
+    if (dlg.ShowModal() == wxID_CANCEL)
+        return;
+
+    wxString FileToOpen;
+
+    if (dlg.IsInstaller())
+        FileToOpen = InstList[dlg.GetSelection()];
+    else
+        FileToOpen = UninstList[dlg.GetSelection()];
+
+    OpenModFile(FileToOpen);
 }

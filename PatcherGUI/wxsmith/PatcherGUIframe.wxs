@@ -82,8 +82,17 @@
 										</object>
 										<object class="sizeritem">
 											<object class="wxButton" name="ID_BUTTON2" variable="Button2" member="yes">
-												<label>Install</label>
+												<label>Apply</label>
 												<handler function="OnInstallMod" entry="EVT_BUTTON" />
+											</object>
+											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
+											<border>5</border>
+											<option>1</option>
+										</object>
+										<object class="sizeritem">
+											<object class="wxButton" name="ID_BUTTON4" variable="Button4" member="yes">
+												<label>Show log</label>
+												<handler function="OnShowLog" entry="EVT_BUTTON" />
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
 											<border>5</border>
