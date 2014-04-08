@@ -35,9 +35,12 @@ class PatcherGUIFrame: public wxFrame
         wxArrayString PatchUPKerrors;
         wxArrayString DecompressOutput;
         wxArrayString DecompressErrors;
+        wxArrayString XshapeOutput;
+        wxArrayString XshapeErrors;
         wxString BackupPathString;
         wxString PatchUPKprogram;
         wxString DecompressProgram;
+        wxString XshapeProgram;
         wxArrayString FilesToBackup;
         wxArrayString FilesToRemove;
         wxArrayString FilesToDecompress;
@@ -70,6 +73,7 @@ class PatcherGUIFrame: public wxFrame
         void OnChangeSettings(wxCommandEvent& event);
         void OnClose(wxCloseEvent& event);
         void OnShowLog(wxCommandEvent& event);
+        void OnUpdateHashes(wxCommandEvent& event);
         //*)
 
         //(*Identifiers(PatcherGUIFrame)
@@ -81,6 +85,7 @@ class PatcherGUIFrame: public wxFrame
         static const long ID_BUTTON1;
         static const long ID_BUTTON7;
         static const long ID_BUTTON2;
+        static const long ID_BUTTON3;
         static const long ID_BUTTON4;
         static const long ID_BUTTON5;
         static const long ID_TEXTCTRL3;
@@ -94,6 +99,7 @@ class PatcherGUIFrame: public wxFrame
         wxPanel* Panel1;
         wxButton* Button2;
         wxButton* Button5;
+        wxButton* Button3;
         wxButton* Button7;
         wxButton* Button9;
         wxTextCtrl* TextCtrl2;

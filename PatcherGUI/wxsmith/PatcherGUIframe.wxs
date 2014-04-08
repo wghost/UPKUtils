@@ -17,6 +17,7 @@
 								<object class="sizeritem">
 									<object class="wxTextCtrl" name="ID_TEXTCTRL1" variable="TextCtrl1" member="yes">
 										<value>Path to XCOM:EU or XCOM:EW</value>
+										<tooltip>Path to XCOM:EU or XCOM:EW</tooltip>
 										<style>wxTE_READONLY</style>
 									</object>
 									<flag>wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -26,6 +27,7 @@
 								<object class="sizeritem">
 									<object class="wxButton" name="ID_BUTTON8" variable="Button8" member="yes">
 										<label>Browse</label>
+										<tooltip>Set path to XCOM:EU or XCOM:EW</tooltip>
 										<handler function="OnSelectDirectory" entry="EVT_BUTTON" />
 									</object>
 									<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -35,6 +37,7 @@
 								<object class="sizeritem">
 									<object class="wxTextCtrl" name="ID_TEXTCTRL2" variable="TextCtrl2" member="yes">
 										<value>Mod file</value>
+										<tooltip>Path to mod file</tooltip>
 										<style>wxTE_READONLY</style>
 									</object>
 									<flag>wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -44,6 +47,7 @@
 								<object class="sizeritem">
 									<object class="wxButton" name="ID_BUTTON9" variable="Button9" member="yes">
 										<label>Browse</label>
+										<tooltip>Open mod file</tooltip>
 										<handler function="OnSelectModFile" entry="EVT_BUTTON" />
 									</object>
 									<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -53,6 +57,7 @@
 								<object class="sizeritem">
 									<object class="wxRichTextCtrl" name="ID_RICHTEXTCTRL1" variable="RichTextCtrl1" member="yes">
 										<size>575,353</size>
+										<tooltip>View and edit mod file</tooltip>
 										<style>wxRE_MULTILINE|wxWANTS_CHARS</style>
 									</object>
 									<flag>wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -65,6 +70,7 @@
 										<object class="sizeritem">
 											<object class="wxButton" name="ID_BUTTON1" variable="Button1" member="yes">
 												<label>Save</label>
+												<tooltip>Save mod file</tooltip>
 												<handler function="OnSaveModFile" entry="EVT_BUTTON" />
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -74,6 +80,7 @@
 										<object class="sizeritem">
 											<object class="wxButton" name="ID_BUTTON7" variable="Button7" member="yes">
 												<label>Save as...</label>
+												<tooltip>Save mod file as...</tooltip>
 												<handler function="OnSaveModFileAs" entry="EVT_BUTTON" />
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -83,7 +90,18 @@
 										<object class="sizeritem">
 											<object class="wxButton" name="ID_BUTTON2" variable="Button2" member="yes">
 												<label>Apply</label>
+												<tooltip>Apply mod</tooltip>
 												<handler function="OnInstallMod" entry="EVT_BUTTON" />
+											</object>
+											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
+											<border>5</border>
+											<option>1</option>
+										</object>
+										<object class="sizeritem">
+											<object class="wxButton" name="ID_BUTTON3" variable="Button3" member="yes">
+												<label>XSHAPE</label>
+												<tooltip>Update hashes with XSHAPE (XCOM:EU only!)</tooltip>
+												<handler function="OnUpdateHashes" entry="EVT_BUTTON" />
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
 											<border>5</border>
@@ -92,6 +110,7 @@
 										<object class="sizeritem">
 											<object class="wxButton" name="ID_BUTTON4" variable="Button4" member="yes">
 												<label>Show log</label>
+												<tooltip>View install log</tooltip>
 												<handler function="OnShowLog" entry="EVT_BUTTON" />
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -101,6 +120,7 @@
 										<object class="sizeritem">
 											<object class="wxButton" name="ID_BUTTON5" variable="Button5" member="yes">
 												<label>Settings</label>
+												<tooltip>Change program settings</tooltip>
 												<handler function="OnChangeSettings" entry="EVT_BUTTON" />
 											</object>
 											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
@@ -116,6 +136,7 @@
 									<object class="wxTextCtrl" name="ID_TEXTCTRL3" variable="TextCtrl3" member="yes">
 										<value>PatchUPK output stream</value>
 										<size>575,88</size>
+										<tooltip>Output stream of console utilities. Copy this to your bugreport if something goes wrong.</tooltip>
 										<style>wxTE_MULTILINE|wxTE_READONLY</style>
 									</object>
 									<flag>wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>

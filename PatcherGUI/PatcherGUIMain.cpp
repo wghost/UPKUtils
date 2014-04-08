@@ -37,6 +37,7 @@ const long PatcherGUIFrame::ID_RICHTEXTCTRL1 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON1 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON7 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON2 = wxNewId();
+const long PatcherGUIFrame::ID_BUTTON3 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON4 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON5 = wxNewId();
 const long PatcherGUIFrame::ID_TEXTCTRL3 = wxNewId();
@@ -70,29 +71,43 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     FlexGridSizer2->AddGrowableRow(2);
     FlexGridSizer2->AddGrowableRow(3);
     TextCtrl1 = new wxTextCtrl(Panel1, ID_TEXTCTRL1, _("Path to XCOM:EU or XCOM:EW"), wxDefaultPosition, wxDefaultSize, wxTE_READONLY, wxDefaultValidator, _T("ID_TEXTCTRL1"));
+    TextCtrl1->SetToolTip(_("Path to XCOM:EU or XCOM:EW"));
     FlexGridSizer2->Add(TextCtrl1, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button8 = new wxButton(Panel1, ID_BUTTON8, _("Browse"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON8"));
+    Button8->SetToolTip(_("Set path to XCOM:EU or XCOM:EW"));
     FlexGridSizer2->Add(Button8, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     TextCtrl2 = new wxTextCtrl(Panel1, ID_TEXTCTRL2, _("Mod file"), wxDefaultPosition, wxDefaultSize, wxTE_READONLY, wxDefaultValidator, _T("ID_TEXTCTRL2"));
+    TextCtrl2->SetToolTip(_("Path to mod file"));
     FlexGridSizer2->Add(TextCtrl2, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button9 = new wxButton(Panel1, ID_BUTTON9, _("Browse"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON9"));
+    Button9->SetToolTip(_("Open mod file"));
     FlexGridSizer2->Add(Button9, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     RichTextCtrl1 = new wxRichTextCtrl(Panel1, ID_RICHTEXTCTRL1, wxEmptyString, wxDefaultPosition, wxSize(575,353), wxRE_MULTILINE|wxWANTS_CHARS, wxDefaultValidator, _T("ID_RICHTEXTCTRL1"));
     	wxRichTextAttr rchtxtAttr_1;
+    RichTextCtrl1->SetToolTip(_("View and edit mod file"));
     FlexGridSizer2->Add(RichTextCtrl1, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     BoxSizer3 = new wxBoxSizer(wxVERTICAL);
     Button1 = new wxButton(Panel1, ID_BUTTON1, _("Save"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON1"));
+    Button1->SetToolTip(_("Save mod file"));
     BoxSizer3->Add(Button1, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button7 = new wxButton(Panel1, ID_BUTTON7, _("Save as..."), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON7"));
+    Button7->SetToolTip(_("Save mod file as..."));
     BoxSizer3->Add(Button7, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button2 = new wxButton(Panel1, ID_BUTTON2, _("Apply"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON2"));
+    Button2->SetToolTip(_("Apply mod"));
     BoxSizer3->Add(Button2, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
+    Button3 = new wxButton(Panel1, ID_BUTTON3, _("XSHAPE"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON3"));
+    Button3->SetToolTip(_("Update hashes with XSHAPE (XCOM:EU only!)"));
+    BoxSizer3->Add(Button3, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button4 = new wxButton(Panel1, ID_BUTTON4, _("Show log"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON4"));
+    Button4->SetToolTip(_("View install log"));
     BoxSizer3->Add(Button4, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button5 = new wxButton(Panel1, ID_BUTTON5, _("Settings"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON5"));
+    Button5->SetToolTip(_("Change program settings"));
     BoxSizer3->Add(Button5, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     FlexGridSizer2->Add(BoxSizer3, 1, wxALL|wxALIGN_TOP|wxALIGN_CENTER_HORIZONTAL, 5);
     TextCtrl3 = new wxTextCtrl(Panel1, ID_TEXTCTRL3, _("PatchUPK output stream"), wxDefaultPosition, wxSize(575,88), wxTE_MULTILINE|wxTE_READONLY, wxDefaultValidator, _T("ID_TEXTCTRL3"));
+    TextCtrl3->SetToolTip(_("Output stream of console utilities. Copy this to your bugreport if something goes wrong."));
     FlexGridSizer2->Add(TextCtrl3, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     BoxSizer2->Add(FlexGridSizer2, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 0);
     Panel1->SetSizer(BoxSizer2);
@@ -108,6 +123,7 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     Connect(ID_BUTTON1,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFile);
     Connect(ID_BUTTON7,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFileAs);
     Connect(ID_BUTTON2,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnInstallMod);
+    Connect(ID_BUTTON3,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnUpdateHashes);
     Connect(ID_BUTTON4,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnShowLog);
     Connect(ID_BUTTON5,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnChangeSettings);
     Connect(wxID_ANY,wxEVT_CLOSE_WINDOW,(wxObjectEventFunction)&PatcherGUIFrame::OnClose);
@@ -117,8 +133,9 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     if (!LoadCFG())
     {
         BackupPathString = wxGetCwd() + "\\Backup";
-        PatchUPKprogram = wxGetCwd() + "\\PatchUPK.exe";
-        DecompressProgram = wxGetCwd() + "\\Decompress.exe";
+        PatchUPKprogram = wxGetCwd() + "\\Binaries\\PatchUPK.exe";
+        DecompressProgram = wxGetCwd() + "\\Binaries\\Decompress.exe";
+        XshapeProgram = wxGetCwd() + "\\Binaries\\XSHAPE.jar";
     }
     curBackupPathString = "";
 }
@@ -165,6 +182,8 @@ bool PatcherGUIFrame::LoadCFG()
         PatchUPKprogram = str;
         getline(cfg, str);
         DecompressProgram = str;
+        getline(cfg, str);
+        XshapeProgram = str;
         return true;
     }
     return false;
@@ -179,14 +198,17 @@ bool PatcherGUIFrame::SaveCFG()
             TextCtrl1->SetValue(wxGetCwd());
         cfg << TextCtrl1->GetValue() << std::endl;
         if (!wxDirExists(BackupPathString))
-            BackupPathString = wxGetCwd() + "\\Backup";
+            BackupPathString = wxGetCwd() + "\\Binaries\\Backup";
         cfg << BackupPathString << std::endl;
         if (!wxFileExists(PatchUPKprogram))
-            PatchUPKprogram = wxGetCwd() + "\\PatchUPK.exe";
+            PatchUPKprogram = wxGetCwd() + "\\Binaries\\PatchUPK.exe";
         cfg << PatchUPKprogram << std::endl;
         if (!wxFileExists(DecompressProgram))
-            DecompressProgram = wxGetCwd() + "\\Decompress.exe";
+            DecompressProgram = wxGetCwd() + "\\Binaries\\Decompress.exe";
         cfg << DecompressProgram << std::endl;
+        if (!wxFileExists(XshapeProgram))
+            XshapeProgram = wxGetCwd() + "\\Binaries\\XSHAPE.jar";
+        cfg << XshapeProgram << std::endl;
         return true;
     }
     return false;
@@ -630,6 +652,7 @@ void PatcherGUIFrame::OnChangeSettings(wxCommandEvent& event)
     dlg.TextCtrl2->SetValue(BackupPathString);
     dlg.TextCtrl3->SetValue(PatchUPKprogram);
     dlg.TextCtrl1->SetValue(DecompressProgram);
+    dlg.TextCtrl4->SetValue(XshapeProgram);
 
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
@@ -638,6 +661,7 @@ void PatcherGUIFrame::OnChangeSettings(wxCommandEvent& event)
     BackupPathString = dlg.TextCtrl2->GetValue();
     PatchUPKprogram = dlg.TextCtrl3->GetValue();
     DecompressProgram = dlg.TextCtrl1->GetValue();
+    XshapeProgram = dlg.TextCtrl4->GetValue();
     //SaveCFG();
 }
 
@@ -658,4 +682,52 @@ void PatcherGUIFrame::OnShowLog(wxCommandEvent& event)
         FileToOpen = UninstList[dlg.GetSelection()];
 
     OpenModFile(FileToOpen);
+}
+
+void PatcherGUIFrame::OnUpdateHashes(wxCommandEvent& event)
+{
+    if (!wxFileExists(XshapeProgram))
+    {
+        wxMessageBox(_("Can't find XSHAPE in ") + XshapeProgram, _("Error"), wxICON_ERROR | wxOK, this);
+        return;
+    }
+
+    long retVal = 0;
+    wxString executeXshapeCommandLineString = "java -jar \"" + XshapeProgram + "\" -v 0";
+    wxString  XshapeCFG = TextCtrl1->GetValue() + "\\XSHAPE.config";
+
+    if (!wxFileExists(XshapeCFG))
+    {
+        wxString DefCFG;
+        wxFileName::SplitPath(XshapeProgram, nullptr, &DefCFG, nullptr, nullptr);
+        DefCFG += "\\XSHAPE.config";
+        if (!wxCopyFile(DefCFG, XshapeCFG))
+        {
+            wxMessageBox(_("Error copying XSHAPE config to ") + XshapeCFG, _("Error"), wxICON_ERROR | wxOK, this);
+            return;
+        }
+    }
+
+    wxExecuteEnv env;
+    env.cwd = TextCtrl1->GetValue();
+
+    XshapeOutput.Clear();
+    XshapeErrors.Clear();
+
+    retVal = wxExecute(executeXshapeCommandLineString, XshapeOutput, XshapeErrors, wxEXEC_SYNC, &env);
+
+    TextCtrl3->AppendText("Executing external XSHAPE program:\n" + executeXshapeCommandLineString + "\n\n");
+
+    for (unsigned k = 0; k < XshapeOutput.GetCount(); ++k)
+        TextCtrl3->AppendText(XshapeOutput[k] + "\n");
+    for (unsigned k = 0; k < XshapeErrors.GetCount(); ++k)
+        TextCtrl3->AppendText(XshapeErrors[k] + "\n");
+
+    if (retVal != 0)
+    {
+        wxMessageBox(_("Error updating hashes!"), _("Error"), wxICON_ERROR | wxOK, this);
+        return;
+    }
+
+    TextCtrl3->AppendText("Hashes updated successfully\n\n");
 }

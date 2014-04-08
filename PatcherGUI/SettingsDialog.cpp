@@ -20,6 +20,9 @@ const long SettingsDialog::ID_BUTTON3 = wxNewId();
 const long SettingsDialog::ID_STATICTEXT1 = wxNewId();
 const long SettingsDialog::ID_TEXTCTRL1 = wxNewId();
 const long SettingsDialog::ID_BUTTON1 = wxNewId();
+const long SettingsDialog::ID_STATICTEXT4 = wxNewId();
+const long SettingsDialog::ID_TEXTCTRL4 = wxNewId();
+const long SettingsDialog::ID_BUTTON4 = wxNewId();
 const long SettingsDialog::ID_PANEL1 = wxNewId();
 //*)
 
@@ -60,6 +63,12 @@ SettingsDialog::SettingsDialog(wxWindow* parent,wxWindowID id)
 	FlexGridSizer1->Add(TextCtrl1, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
 	Button1 = new wxButton(Panel1, ID_BUTTON1, _("Browse"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON1"));
 	FlexGridSizer1->Add(Button1, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
+	StaticText4 = new wxStaticText(Panel1, ID_STATICTEXT4, _("XSHAPE.jar"), wxDefaultPosition, wxDefaultSize, 0, _T("ID_STATICTEXT4"));
+	FlexGridSizer1->Add(StaticText4, 1, wxALL|wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL, 5);
+	TextCtrl4 = new wxTextCtrl(Panel1, ID_TEXTCTRL4, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_READONLY, wxDefaultValidator, _T("ID_TEXTCTRL4"));
+	FlexGridSizer1->Add(TextCtrl4, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
+	Button4 = new wxButton(Panel1, ID_BUTTON4, _("Browse"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON4"));
+	FlexGridSizer1->Add(Button4, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
 	FlexGridSizer1->Add(-1,-1,1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
 	StdDialogButtonSizer1 = new wxStdDialogButtonSizer();
 	StdDialogButtonSizer1->AddButton(new wxButton(Panel1, wxID_OK, wxEmptyString));
@@ -79,6 +88,7 @@ SettingsDialog::SettingsDialog(wxWindow* parent,wxWindowID id)
 	Connect(ID_BUTTON2,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&SettingsDialog::OnSetBackupPath);
 	Connect(ID_BUTTON3,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&SettingsDialog::OnSetPatchUPKprogram);
 	Connect(ID_BUTTON1,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&SettingsDialog::OnSetDecompressProgramm);
+	Connect(ID_BUTTON4,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&SettingsDialog::OnSetXshapeProgram);
 	//*)
 }
 
@@ -117,4 +127,14 @@ void SettingsDialog::OnSetDecompressProgramm(wxCommandEvent& event)
         return;
 
     TextCtrl1->SetValue(openFileDialog.GetPath());
+}
+
+void SettingsDialog::OnSetXshapeProgram(wxCommandEvent& event)
+{
+    wxFileDialog openFileDialog(this, _("Select XSHAPE.jar location"), "", "", "XSHAPE.jar|*.jar", wxFD_OPEN|wxFD_FILE_MUST_EXIST);
+
+    if (openFileDialog.ShowModal() == wxID_CANCEL)
+        return;
+
+    TextCtrl4->SetValue(openFileDialog.GetPath());
 }
