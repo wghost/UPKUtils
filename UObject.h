@@ -137,6 +137,7 @@ public:
     std::string Deserialize(std::istream& stream, UPKInfo& info);
     bool IsStructure() { return true; }
     uint32_t GetScriptSerialSize() { return ScriptSerialSize; }
+    uint32_t GetScriptMemorySize() { return ScriptMemorySize; }
     uint32_t GetScriptOffset() { return ScriptOffset; }
 protected:
     /// persistent

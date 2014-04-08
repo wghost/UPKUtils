@@ -20,6 +20,7 @@ public:
     std::vector<char> GetExportData(uint32_t idx);
     void SaveExportData(uint32_t idx);
     size_t GetScriptSize(uint32_t idx);
+    size_t GetScriptMemSize(uint32_t idx);
     size_t GetScriptRelOffset(uint32_t idx);
     /// Move/expand export object data (legacy functions for backward compatibility)
     bool MoveExportData(uint32_t idx, uint32_t newObjectSize = 0);

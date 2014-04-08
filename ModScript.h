@@ -68,8 +68,10 @@ protected:
         size_t MaxOffset;
         std::string Behaviour;
         bool Good;
+        bool BeforeUsed;
+        unsigned BeforeMemSize;
     } ScriptState;
-    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.MaxOffset = 0; ScriptState.Behaviour = "KEEP"; }
+    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.MaxOffset = 0; ScriptState.Behaviour = "KEEP"; ScriptState.BeforeUsed = false; ScriptState.BeforeMemSize = 0; }
     bool SetBad() { return (ScriptState.Good = false); }
     bool SetGood() { return (ScriptState.Good = true); }
     void AddUPKName(std::string upkname);
@@ -102,9 +104,15 @@ protected:
     bool WriteNameIdx(const std::string& Param);
     bool WriteObjectIdx(const std::string& Param);
     bool AddAlias(const std::string& Param);
+    /// before-after
+    bool SetBeforeHEXOffset(const std::string& Param);
+    bool WriteAfterHEX(const std::string& Param);
+    bool SetBeforeCodeOffset(const std::string& Param);
+    bool WriteAfterCode(const std::string& Param);
     /// end-of-block indicators are just skipped, as they don't actually used
     bool Sink(const std::string& Param);
     /// helpers
+    bool SetDataOffset(const std::string& Param, bool isEnd, bool isBeforeData);
     bool CheckMoveResize(size_t DataSize);
     bool MoveResizeAtRelOffset(int ObjSize);
     bool WriteBinaryData(const std::vector<char>& DataChunk);

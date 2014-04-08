@@ -336,6 +336,35 @@ size_t UPKUtils::GetScriptSize(uint32_t idx)
     return ScriptSize;
 }
 
+size_t UPKUtils::GetScriptMemSize(uint32_t idx)
+{
+    if (idx < 1 || idx >= ExportTable.size())
+        return 0;
+    UObject* Obj;
+    Obj = UObjectFactory::Create(ExportTable[idx].Type);
+    if (Obj == nullptr)
+        return 0;
+    UPKFile.seekg(ExportTable[idx].SerialOffset);
+    Obj->SetRef(idx);
+    Obj->SetUnsafe(false);
+    Obj->SetQuickMode(true);
+    Obj->Deserialize(UPKFile, *dynamic_cast<UPKInfo*>(this));
+    if (Obj->IsStructure() == false)
+    {
+        delete Obj;
+        return 0;
+    }
+    UStruct* St = dynamic_cast<UStruct*>(Obj);
+    if (St == nullptr)
+    {
+        delete Obj;
+        return 0;
+    }
+    size_t ScriptMemSize = St->GetScriptMemorySize();
+    delete Obj;
+    return ScriptMemSize;
+}
+
 size_t UPKUtils::GetScriptRelOffset(uint32_t idx)
 {
     if (idx < 1 || idx >= ExportTable.size())
