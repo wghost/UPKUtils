@@ -352,7 +352,7 @@ std::string UField::Deserialize(std::istream& stream, UPKInfo& info)
     if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
         return ss.str();
     ss << "UField:\n";
-    FieldOffset = stream.tellg();
+    FieldOffset = NextRefOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&NextRef), sizeof(NextRef));
     ss << "\tNextRef = " << FormatHEX((uint32_t)NextRef) << " -> " << info.ObjRefToName(NextRef) << std::endl;
     if (IsStructure())
@@ -375,6 +375,7 @@ std::string UStruct::Deserialize(std::istream& stream, UPKInfo& info)
     StructOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&ScriptTextRef), sizeof(ScriptTextRef));
     ss << "\tScriptTextRef = " << FormatHEX((uint32_t)ScriptTextRef) << " -> " << info.ObjRefToName(ScriptTextRef) << std::endl;
+    FirstChildRefOffset = stream.tellg();
     stream.read(reinterpret_cast<char*>(&FirstChildRef), sizeof(FirstChildRef));
     ss << "\tFirstChildRef = " << FormatHEX((uint32_t)FirstChildRef) << " -> " << info.ObjRefToName(FirstChildRef) << std::endl;
     stream.read(reinterpret_cast<char*>(&CppTextRef), sizeof(CppTextRef));

@@ -120,6 +120,8 @@ public:
     UField() { Type = GlobalType::UField; }
     ~UField() {}
     std::string Deserialize(std::istream& stream, UPKInfo& info);
+    UObjectReference GetNextRef() { return NextRef; }
+    size_t GetNextRefOffset() { return NextRefOffset; }
 protected:
     /// persistent
     UObjectReference NextRef;
@@ -127,6 +129,7 @@ protected:
     /// memory
     size_t FieldOffset;
     size_t FieldSize;
+    size_t NextRefOffset;
 };
 
 class UStruct: public UField
@@ -136,9 +139,11 @@ public:
     ~UStruct() {}
     std::string Deserialize(std::istream& stream, UPKInfo& info);
     bool IsStructure() { return true; }
+    UObjectReference GetFirstChildRef() { return FirstChildRef; }
     uint32_t GetScriptSerialSize() { return ScriptSerialSize; }
     uint32_t GetScriptMemorySize() { return ScriptMemorySize; }
-    uint32_t GetScriptOffset() { return ScriptOffset; }
+    size_t GetScriptOffset() { return ScriptOffset; }
+    size_t GetFirstChildRefOffset() { return FirstChildRefOffset; }
 protected:
     /// persistent
     UObjectReference ScriptTextRef;
@@ -153,6 +158,7 @@ protected:
     size_t StructOffset;
     size_t StructSize;
     size_t ScriptOffset;
+    size_t FirstChildRefOffset;
 };
 
 class UFunction: public UStruct
