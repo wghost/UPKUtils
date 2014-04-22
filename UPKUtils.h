@@ -32,23 +32,25 @@ public:
     bool UndoMoveResizeObject(uint32_t idx);
     /// Deserialize
     std::string Deserialize(UObjectReference ObjRef, bool TryUnsafe = false, bool QuickMode = false);
+    bool Deserialize(FNameEntry& entry, std::vector<char>& data);
+    bool Deserialize(FObjectImport& entry, std::vector<char>& data);
+    bool Deserialize(FObjectExport& entry, std::vector<char>& data);
     /// Write data
     bool CheckValidFileOffset(size_t offset);
     bool WriteExportData(uint32_t idx, std::vector<char> data, std::vector<char> *backupData = nullptr);
     bool WriteNameTableName(uint32_t idx, std::string name);
     bool WriteData(size_t offset, std::vector<char> data, std::vector<char> *backupData = nullptr);
     size_t FindDataChunk(std::vector<char> data, size_t beg = 0, size_t limit = 0);
+    /// UPK serialization
+    std::vector<char> SerializeHeader();
     /// Aggressive patching functions
+    bool AddNameEntry(FNameEntry Entry);
+    bool AddImportEntry(FObjectImport Entry);
+    bool AddExportEntry(FObjectExport Entry);
+    bool LinkChild(UObjectReference OwnerRef, UObjectReference ChildRef);
     /*
-    bool AddName(FNameEntry entry);
-    bool AddImport(FObjectImport entry);
-    bool AddExport(FObjectExport entry);
-    bool LinkChild(UObjectReference LastChildRef, UObjectReference NewChildRef);
     bool ResizeInPlace(UObjectReference ObjRef, uint32_t newObjectSize);
     */
-    /*bool AddNameListEntry(NameListEntry entry);
-    bool AddObjectListEntry(ObjectListEntry entry);
-    bool AddImportListEntry(ImportListEntry entry);*/
 private:
     std::fstream UPKFile;
     size_t UPKFileSize;

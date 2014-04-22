@@ -1,6 +1,7 @@
 #include "UPKUtils.h"
 
 #include <cstring>
+#include <sstream>
 
 uint8_t PatchUPKhash [] = {0x7A, 0xA0, 0x56, 0xC9,
                            0x60, 0x5F, 0x7B, 0x31,
@@ -394,175 +395,393 @@ size_t UPKUtils::GetScriptRelOffset(uint32_t idx)
     return ScriptRelOffset;
 }
 
-/*bool UPKUtils::AddNameListEntry(NameListEntry entry)
+bool UPKUtils::AddNameEntry(FNameEntry Entry)
 {
-    std::ofstream newUPK((UPKfilename + ".new").c_str(), std::ios::binary);
-    assert(newUPK.is_open() == true);
-    uint32_t newEntrySize = 4 + entry.NameLength + 8;
-    upkFile.seekg(0);
-    newUPK.seekp(0);
-    uint32_t offset = 0;
-    for (; offset < headerSizeOffset; ++offset)
+    if (!UPKFile.good())
     {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
+        return false;
     }
-    uint32_t newHeaderSize;
-    upkFile.read(reinterpret_cast<char*>(&newHeaderSize), sizeof(newHeaderSize));
-    newHeaderSize += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newHeaderSize), sizeof(newHeaderSize));
-    for (offset = upkFile.tellg(); offset < NameCountOffset; ++offset)
+    size_t oldSerialOffset = Summary.SerialOffset;
+    /// increase header size
+    Summary.HeaderSize += Entry.EntrySize;
+    /// add entry
+    ++Summary.NameCount;
+    NameTable.push_back(Entry);
+    /// increase offsets
+    Summary.ImportOffset += Entry.EntrySize;
+    Summary.ExportOffset += Entry.EntrySize;
+    Summary.DependsOffset += Entry.EntrySize;
+    Summary.SerialOffset += Entry.EntrySize;
+    for (unsigned i = 1; i <= Summary.ExportCount; ++i)
     {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
+        ExportTable[i].SerialOffset += Entry.EntrySize;
     }
-    uint32_t newNameCount;
-    upkFile.read(reinterpret_cast<char*>(&newNameCount), sizeof(newNameCount));
-    ++newNameCount;
-    newUPK.write(reinterpret_cast<char*>(&newNameCount), sizeof(newNameCount));
-    for (int i = 0; i < 8; ++i)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    uint32_t newExportOffset;
-    upkFile.read(reinterpret_cast<char*>(&newExportOffset), sizeof(newExportOffset));
-    newExportOffset += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newExportOffset), sizeof(newExportOffset));
-    for (int i = 0; i < 4; ++i)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    uint32_t newImportOffset;
-    upkFile.read(reinterpret_cast<char*>(&newImportOffset), sizeof(newImportOffset));
-    newImportOffset += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newImportOffset), sizeof(newImportOffset));
-    uint32_t newDependsOffset;
-    upkFile.read(reinterpret_cast<char*>(&newDependsOffset), sizeof(newDependsOffset));
-    newDependsOffset += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newDependsOffset), sizeof(newDependsOffset));
-    uint32_t newUnknown1;
-    upkFile.read(reinterpret_cast<char*>(&newUnknown1), sizeof(newUnknown1));
-    newUnknown1 += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newUnknown1), sizeof(newUnknown1));
-    for (offset = upkFile.tellg(); offset < NameListEndOffset; ++offset)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    newUPK.write(reinterpret_cast<char*>(&entry.NameLength), sizeof(entry.NameLength));
-    newUPK.write(entry.NameString.c_str(), entry.NameLength);
-    newUPK.write(reinterpret_cast<char*>(&entry.NameFlagsH), sizeof(entry.NameFlagsH));
-    newUPK.write(reinterpret_cast<char*>(&entry.NameFlagsL), sizeof(entry.NameFlagsL));
-    for (offset = upkFile.tellg(); offset < header.ExportOffset; ++offset)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    for (unsigned i = 0; i < header.ExportCount; ++i)
-    {
-        ObjectListEntry EntryToRead;
-
-        upkFile.read(reinterpret_cast<char*>(&EntryToRead), sizeof(EntryToRead));
-
-        EntryToRead.DataOffset += newEntrySize;
-
-        newUPK.write(reinterpret_cast<char*>(&EntryToRead), sizeof(EntryToRead));
-
-        for (unsigned j = 0; j < EntryToRead.NumAdditionalFields * sizeof(uint32_t); ++j)
-        {
-            uint8_t ch = upkFile.get();
-            newUPK.put(ch);
-        }
-    }
-    for (offset = upkFile.tellg(); offset < upkFileSize; ++offset)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    newUPK.close();
-    open((UPKfilename + ".new").c_str());
+    /// backup serialized export data into memory
+    UPKFile.clear();
+    UPKFile.seekg(oldSerialOffset);
+    std::vector<char> serializedData(UPKFileSize - oldSerialOffset);
+    UPKFile.read(serializedData.data(), serializedData.size());
+    /// rewrite package
+    UPKFile.seekp(0);
+    /// serialize header
+    std::vector<char> serializedHeader = SerializeHeader();
+    /// write serialized header
+    UPKFile.write(serializedHeader.data(), serializedHeader.size());
+    /// write serialized export data
+    UPKFile.write(serializedData.data(), serializedData.size());
+    /// reload package
+    UPKUtils::Reload();
     return true;
 }
 
-bool UPKUtils::AddObjectListEntry(ObjectListEntry entry)
+bool UPKUtils::AddImportEntry(FObjectImport Entry)
 {
-    std::ofstream newUPK((UPKfilename + ".new2").c_str(), std::ios::binary);
-    assert(newUPK.is_open() == true);
-    uint32_t newEntrySize = 17 * 4 + entry.NumAdditionalFields * 4;
-    upkFile.seekg(0);
-    newUPK.seekp(0);
-    uint32_t offset = 0;
-    for (; offset < headerSizeOffset; ++offset)
+    if (!UPKFile.good())
     {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
+        return false;
     }
-    uint32_t newHeaderSize;
-    upkFile.read(reinterpret_cast<char*>(&newHeaderSize), sizeof(newHeaderSize));
-    newHeaderSize += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newHeaderSize), sizeof(newHeaderSize));
-    for (offset = upkFile.tellg(); offset < NameCountOffset + 8; ++offset)
+    size_t oldSerialOffset = Summary.SerialOffset;
+    /// increase header size
+    Summary.HeaderSize += Entry.EntrySize;
+    /// add entry
+    ++Summary.ImportCount;
+    ImportTable.push_back(Entry);
+    /// increase offsets
+    Summary.ExportOffset += Entry.EntrySize;
+    Summary.DependsOffset += Entry.EntrySize;
+    Summary.SerialOffset += Entry.EntrySize;
+    for (unsigned i = 1; i <= Summary.ExportCount; ++i)
     {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
+        ExportTable[i].SerialOffset += Entry.EntrySize;
     }
-    uint32_t newExportCount;
-    upkFile.read(reinterpret_cast<char*>(&newExportCount), sizeof(newExportCount));
-    ++newExportCount;
-    std::cout << "newExportCount = " << newExportCount << std::endl;
-    newUPK.write(reinterpret_cast<char*>(&newExportCount), sizeof(newExportCount));
-    for (unsigned i = 0; i < 12; ++i)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    uint32_t newDependsOffset;
-    upkFile.read(reinterpret_cast<char*>(&newDependsOffset), sizeof(newDependsOffset));
-    newDependsOffset += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newDependsOffset), sizeof(newDependsOffset));
-    uint32_t newUnknown1;
-    upkFile.read(reinterpret_cast<char*>(&newUnknown1), sizeof(newUnknown1));
-    newUnknown1 += newEntrySize;
-    newUPK.write(reinterpret_cast<char*>(&newUnknown1), sizeof(newUnknown1));
-    for (offset = upkFile.tellg(); offset < header.ExportOffset; ++offset)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    for (unsigned i = 0; i < header.ExportCount; ++i)
-    {
-        ObjectListEntry EntryToRead;
-
-        upkFile.read(reinterpret_cast<char*>(&EntryToRead), sizeof(EntryToRead));
-
-        EntryToRead.DataOffset += newEntrySize;
-
-        newUPK.write(reinterpret_cast<char*>(&EntryToRead), sizeof(EntryToRead));
-
-        for (unsigned j = 0; j < EntryToRead.NumAdditionalFields * sizeof(uint32_t); ++j)
-        {
-            uint8_t ch = upkFile.get();
-            newUPK.put(ch);
-        }
-    }
-    newUPK.write(reinterpret_cast<char*>(&entry), sizeof(entry));
-    for (unsigned j = 0; j < entry.NumAdditionalFields * 4; ++j)
-    {
-        newUPK.put(0);
-    }
-    for (offset = upkFile.tellg(); offset < upkFileSize; ++offset)
-    {
-        uint8_t ch = upkFile.get();
-        newUPK.put(ch);
-    }
-    newUPK.close();
-    open((UPKfilename + ".new2").c_str());
+    /// backup serialized export data into memory
+    UPKFile.clear();
+    UPKFile.seekg(oldSerialOffset);
+    std::vector<char> serializedData(UPKFileSize - oldSerialOffset);
+    UPKFile.read(serializedData.data(), serializedData.size());
+    /// rewrite package
+    UPKFile.seekp(0);
+    /// serialize header
+    std::vector<char> serializedHeader = SerializeHeader();
+    /// write serialized header
+    UPKFile.write(serializedHeader.data(), serializedHeader.size());
+    /// write serialized export data
+    UPKFile.write(serializedData.data(), serializedData.size());
+    /// reload package
+    UPKUtils::Reload();
     return true;
 }
 
-bool UPKUtils::AddImportListEntry(ImportListEntry entry)
+bool UPKUtils::AddExportEntry(FObjectExport Entry)
 {
+    if (!UPKFile.good())
+    {
+        return false;
+    }
+    unsigned oldExportCount = Summary.ExportCount;
+    size_t oldSerialOffset = Summary.SerialOffset;
+    /// increase header size
+    Summary.HeaderSize += Entry.EntrySize;
+    /// add entry
+    ++Summary.ExportCount;
+    if (Entry.SerialSize < 4)
+    {
+        Entry.SerialSize = 4;
+    }
+    Entry.SerialOffset = UPKFileSize;
+    ExportTable.push_back(Entry);
+    /// increase offsets
+    Summary.DependsOffset += Entry.EntrySize;
+    Summary.SerialOffset += Entry.EntrySize;
+    for (unsigned i = 1; i <= oldExportCount; ++i)
+    {
+        ExportTable[i].SerialOffset += Entry.EntrySize;
+    }
+    /// backup serialized export data into memory
+    UPKFile.clear();
+    UPKFile.seekg(oldSerialOffset);
+    std::vector<char> serializedData(UPKFileSize - oldSerialOffset);
+    UPKFile.read(serializedData.data(), serializedData.size());
+    /// rewrite package
+    UPKFile.seekp(0);
+    /// serialize header
+    std::vector<char> serializedHeader = SerializeHeader();
+    /// write serialized header
+    UPKFile.write(serializedHeader.data(), serializedHeader.size());
+    /// write serialized export data
+    UPKFile.write(serializedData.data(), serializedData.size());
+    /// write new export serialized data
+    std::vector<char> serializedEntry(Entry.SerialSize);
+    UObjectReference PrevObjRef = oldExportCount;
+    memcpy(serializedEntry.data(), reinterpret_cast<char*>(&PrevObjRef), sizeof(PrevObjRef));
+    UPKFile.write(serializedEntry.data(), serializedEntry.size());
+    /// reload package
+    UPKUtils::Reload();
+    /// link export object to owner
+    LinkChild(Entry.OwnerRef, Summary.ExportCount);
     return true;
-}*/
+}
+
+bool UPKUtils::LinkChild(UObjectReference OwnerRef, UObjectReference ChildRef)
+{
+    if (OwnerRef < 1 || OwnerRef >= (int)ExportTable.size())
+        return false;
+    UObject* Obj;
+    /// get first child
+    Obj = UObjectFactory::Create(GlobalType::UStruct);
+    if (Obj == nullptr)
+    {
+        return false;
+    }
+    UPKFile.seekg(ExportTable[OwnerRef].SerialOffset);
+    Obj->SetRef(OwnerRef);
+    Obj->SetUnsafe(false);
+    Obj->SetQuickMode(true);
+    Obj->Deserialize(UPKFile, *dynamic_cast<UPKInfo*>(this));
+    UStruct* StructObj = dynamic_cast<UStruct*>(Obj);
+    if (StructObj == nullptr)
+    {
+        delete Obj;
+        return false;
+    }
+    UObjectReference FirstChildRef = StructObj->GetFirstChildRef();
+    /// owner has no children
+    if (FirstChildRef == 0)
+    {
+        /// link child to owner
+        UPKFile.seekg(StructObj->GetFirstChildRefOffset());
+        UPKFile.write(reinterpret_cast<char*>(&ChildRef), sizeof(ChildRef));
+        delete Obj;
+        return true;
+    }
+    delete Obj;
+    /// find last child
+    UObjectReference NextRef = FirstChildRef;
+    size_t LastRefOffset = 0;
+    while (NextRef != 0)
+    {
+        Obj = UObjectFactory::Create(GlobalType::UField);
+        if (Obj == nullptr)
+        {
+            return false;
+        }
+        UPKFile.seekg(ExportTable[NextRef].SerialOffset);
+        Obj->SetRef(NextRef);
+        Obj->SetUnsafe(false);
+        Obj->SetQuickMode(true);
+        Obj->Deserialize(UPKFile, *dynamic_cast<UPKInfo*>(this));
+        UField* FieldObj = dynamic_cast<UField*>(Obj);
+        if (FieldObj == nullptr)
+        {
+            delete Obj;
+            return false;
+        }
+        NextRef = FieldObj->GetNextRef();
+        LastRefOffset = FieldObj->GetNextRefOffset();
+        delete Obj;
+    }
+    /// link new child to last child
+    UPKFile.seekg(LastRefOffset);
+    UPKFile.write(reinterpret_cast<char*>(&ChildRef), sizeof(ChildRef));
+    return true;
+}
+
+bool UPKUtils::Deserialize(FNameEntry& entry, std::vector<char>& data)
+{
+    if (data.size() < 12)
+    {
+        return false;
+    }
+    std::stringstream ss;
+    ss.write(data.data(), data.size());
+    ss.read(reinterpret_cast<char*>(&entry.NameLength), 4);
+    if (data.size() != 12U + entry.NameLength)
+    {
+        return false;
+    }
+    if (entry.NameLength > 0)
+    {
+        getline(ss, entry.Name, '\0');
+    }
+    else
+    {
+        entry.Name = "";
+    }
+    ss.read(reinterpret_cast<char*>(&entry.NameFlagsL), 4);
+    ss.read(reinterpret_cast<char*>(&entry.NameFlagsH), 4);
+    /// memory variables
+    entry.EntrySize = data.size();
+    return true;
+}
+
+bool UPKUtils::Deserialize(FObjectImport& entry, std::vector<char>& data)
+{
+    if (data.size() != 28)
+    {
+        return false;
+    }
+    std::stringstream ss;
+    ss.write(data.data(), data.size());
+    ss.read(reinterpret_cast<char*>(&entry.PackageIdx), sizeof(entry.PackageIdx));
+    ss.read(reinterpret_cast<char*>(&entry.TypeIdx), sizeof(entry.TypeIdx));
+    ss.read(reinterpret_cast<char*>(&entry.OwnerRef), sizeof(entry.OwnerRef));
+    ss.read(reinterpret_cast<char*>(&entry.NameIdx), sizeof(entry.NameIdx));
+    /// memory variables
+    entry.EntrySize = data.size();
+    entry.Name = IndexToName(entry.NameIdx);
+    entry.FullName = entry.Name;
+    if (entry.OwnerRef != 0)
+    {
+        entry.FullName = ResolveFullName(entry.OwnerRef) + "." + entry.Name;
+    }
+    entry.Type = IndexToName(entry.TypeIdx);
+    if (entry.Type == "")
+    {
+        entry.Type = "Class";
+    }
+    return true;
+}
+
+bool UPKUtils::Deserialize(FObjectExport& entry, std::vector<char>& data)
+{
+    if (data.size() < 68)
+    {
+        return false;
+    }
+    std::stringstream ss;
+    ss.write(data.data(), data.size());
+    ss.read(reinterpret_cast<char*>(&entry.TypeRef), sizeof(entry.TypeRef));
+    ss.read(reinterpret_cast<char*>(&entry.ParentClassRef), sizeof(entry.ParentClassRef));
+    ss.read(reinterpret_cast<char*>(&entry.OwnerRef), sizeof(entry.OwnerRef));
+    ss.read(reinterpret_cast<char*>(&entry.NameIdx), sizeof(entry.NameIdx));
+    ss.read(reinterpret_cast<char*>(&entry.ArchetypeRef), sizeof(entry.ArchetypeRef));
+    ss.read(reinterpret_cast<char*>(&entry.ObjectFlagsH), sizeof(entry.ObjectFlagsH));
+    ss.read(reinterpret_cast<char*>(&entry.ObjectFlagsL), sizeof(entry.ObjectFlagsL));
+    ss.read(reinterpret_cast<char*>(&entry.SerialSize), sizeof(entry.SerialSize));
+    ss.read(reinterpret_cast<char*>(&entry.SerialOffset), sizeof(entry.SerialOffset));
+    ss.read(reinterpret_cast<char*>(&entry.ExportFlags), sizeof(entry.ExportFlags));
+    ss.read(reinterpret_cast<char*>(&entry.NetObjectCount), sizeof(entry.NetObjectCount));
+    ss.read(reinterpret_cast<char*>(&entry.GUID), sizeof(entry.GUID));
+    ss.read(reinterpret_cast<char*>(&entry.Unknown1), sizeof(entry.Unknown1));
+    entry.NetObjects.resize(entry.NetObjectCount);
+    if (data.size() != 68 + entry.NetObjectCount)
+    {
+        return false;
+    }
+    if (entry.NetObjectCount > 0)
+    {
+        ss.read(reinterpret_cast<char*>(entry.NetObjects.data()), entry.NetObjects.size()*4);
+    }
+    /// memory variables
+    entry.EntrySize = data.size();
+    entry.Name = IndexToName(entry.NameIdx);
+    entry.FullName = entry.Name;
+    if (entry.OwnerRef != 0)
+    {
+        entry.FullName = ResolveFullName(entry.OwnerRef) + "." + entry.Name;
+    }
+    entry.Type = ObjRefToName(entry.TypeRef);
+    if (entry.Type == "")
+    {
+        entry.Type = "Class";
+    }
+    return true;
+}
+
+std::vector<char> UPKUtils::SerializeHeader()
+{
+    std::stringstream ss;
+    ss.write(reinterpret_cast<char*>(&Summary.Signature), 4);
+    int32_t Ver = (Summary.LicenseeVersion << 16) + Summary.Version;
+    ss.write(reinterpret_cast<char*>(&Ver), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.HeaderSize), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.FolderNameLength), 4);
+    if (Summary.FolderNameLength > 0)
+    {
+        ss.write(Summary.FolderName.c_str(), Summary.FolderNameLength);
+    }
+    ss.write(reinterpret_cast<char*>(&Summary.PackageFlags), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.NameCount), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.NameOffset), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.ExportCount), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.ExportOffset), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.ImportCount), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.ImportOffset), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.DependsOffset), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.SerialOffset), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.Unknown2), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.Unknown3), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.Unknown4), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.GUID), sizeof(Summary.GUID));
+    ss.write(reinterpret_cast<char*>(&Summary.GenerationsCount), 4);
+    for (unsigned i = 0; i < Summary.GenerationsCount; ++i)
+    {
+        FGenerationInfo Entry = Summary.Generations[i];
+        ss.write(reinterpret_cast<char*>(&Entry.ExportCount), 4);
+        ss.write(reinterpret_cast<char*>(&Entry.NameCount), 4);
+        ss.write(reinterpret_cast<char*>(&Entry.NetObjectCount), 4);
+    }
+    ss.write(reinterpret_cast<char*>(&Summary.EngineVersion), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.CookerVersion), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.CompressionFlags), 4);
+    ss.write(reinterpret_cast<char*>(&Summary.NumCompressedChunks), 4);
+    for (unsigned i = 0; i < Summary.NumCompressedChunks; ++i)
+    {
+        FCompressedChunk CompressedChunk = Summary.CompressedChunks[i];
+        ss.write(reinterpret_cast<char*>(&CompressedChunk.UncompressedOffset), 4);
+        ss.write(reinterpret_cast<char*>(&CompressedChunk.UncompressedSize), 4);
+        ss.write(reinterpret_cast<char*>(&CompressedChunk.CompressedOffset), 4);
+        ss.write(reinterpret_cast<char*>(&CompressedChunk.CompressedSize), 4);
+    }
+    if (UnknownDataChunk.size() > 0)
+    {
+        ss.write(UnknownDataChunk.data(), UnknownDataChunk.size());
+    }
+    for (unsigned i = 0; i < Summary.NameCount; ++i)
+    {
+        FNameEntry Entry = NameTable[i];
+        ss.write(reinterpret_cast<char*>(&Entry.NameLength), 4);
+        if (Entry.NameLength > 0)
+        {
+            ss.write(Entry.Name.c_str(), Entry.NameLength);
+        }
+        ss.write(reinterpret_cast<char*>(&Entry.NameFlagsL), 4);
+        ss.write(reinterpret_cast<char*>(&Entry.NameFlagsH), 4);
+    }
+    for (unsigned i = 1; i <= Summary.ImportCount; ++i)
+    {
+        FObjectImport Entry = ImportTable[i];
+        ss.write(reinterpret_cast<char*>(&Entry.PackageIdx), sizeof(Entry.PackageIdx));
+        ss.write(reinterpret_cast<char*>(&Entry.TypeIdx), sizeof(Entry.TypeIdx));
+        ss.write(reinterpret_cast<char*>(&Entry.OwnerRef), sizeof(Entry.OwnerRef));
+        ss.write(reinterpret_cast<char*>(&Entry.NameIdx), sizeof(Entry.NameIdx));
+    }
+    for (unsigned i = 1; i <= Summary.ExportCount; ++i)
+    {
+        FObjectExport Entry = ExportTable[i];
+        ss.write(reinterpret_cast<char*>(&Entry.TypeRef), sizeof(Entry.TypeRef));
+        ss.write(reinterpret_cast<char*>(&Entry.ParentClassRef), sizeof(Entry.ParentClassRef));
+        ss.write(reinterpret_cast<char*>(&Entry.OwnerRef), sizeof(Entry.OwnerRef));
+        ss.write(reinterpret_cast<char*>(&Entry.NameIdx), sizeof(Entry.NameIdx));
+        ss.write(reinterpret_cast<char*>(&Entry.ArchetypeRef), sizeof(Entry.ArchetypeRef));
+        ss.write(reinterpret_cast<char*>(&Entry.ObjectFlagsH), sizeof(Entry.ObjectFlagsH));
+        ss.write(reinterpret_cast<char*>(&Entry.ObjectFlagsL), sizeof(Entry.ObjectFlagsL));
+        ss.write(reinterpret_cast<char*>(&Entry.SerialSize), sizeof(Entry.SerialSize));
+        ss.write(reinterpret_cast<char*>(&Entry.SerialOffset), sizeof(Entry.SerialOffset));
+        ss.write(reinterpret_cast<char*>(&Entry.ExportFlags), sizeof(Entry.ExportFlags));
+        ss.write(reinterpret_cast<char*>(&Entry.NetObjectCount), sizeof(Entry.NetObjectCount));
+        ss.write(reinterpret_cast<char*>(&Entry.GUID), sizeof(Entry.GUID));
+        ss.write(reinterpret_cast<char*>(&Entry.Unknown1), sizeof(Entry.Unknown1));
+        if (Entry.NetObjectCount > 0)
+        {
+            ss.write(reinterpret_cast<char*>(Entry.NetObjects.data()), Entry.NetObjects.size()*4);
+        }
+    }
+    if (DependsBuf.size() > 0)
+    {
+        ss.write(DependsBuf.data(), DependsBuf.size());
+    }
+    std::vector<char> ret(ss.tellp());
+    ss.read(ret.data(), ret.size());
+    return ret;
+}
