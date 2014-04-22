@@ -5,6 +5,8 @@
 #include <fstream>
 #include <vector>
 
+std::string Trim(std::string str);
+size_t SplitAt(char ch, std::string in, std::string& out1, std::string& out2);
 std::string GetFilename(std::string str);
 std::string MakeTextBlock(char *data, size_t dataSize);
 std::string GetStringValue(const std::string& TextBuffer);

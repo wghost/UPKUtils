@@ -3,6 +3,40 @@
 #include <iostream>
 #include <sstream>
 #include <cstring>
+#include <cctype>
+
+std::string Trim(std::string str)
+{
+    std::string ret = str, wspc(" \t\f\v\n\r");
+    size_t pos = ret.find_first_not_of(wspc);
+    if (pos != std::string::npos)
+    {
+        ret = ret.substr(pos);
+    }
+    else
+    {
+        return "";
+    }
+    pos = ret.find_last_not_of(wspc);
+    ret = ret.substr(0, pos + 1);
+    return ret;
+}
+
+size_t SplitAt(char ch, std::string in, std::string& out1, std::string& out2)
+{
+    size_t pos = in.find(ch);
+    if (pos != std::string::npos)
+    {
+        out1 = Trim(in.substr(0, pos));
+        out2 = Trim(in.substr(pos + 1));
+    }
+    else
+    {
+        out1 = Trim(in);
+        out2 = "";
+    }
+    return pos;
+}
 
 const char chLookup[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
@@ -36,7 +70,13 @@ std::string GetStringValue(const std::string& TextBuffer)
     if (str.length() < 1)
         return "";
     str = str.substr(0, str.find_first_of("\n")); /// get first line
-    if (str.find("\"") != std::string::npos)
+    str = Trim(str); /// remove leading and trailing white-spaces
+    if (str.find('\"') != std::string::npos) /// remove ""
+    {
+        str = str.substr(str.find_first_not_of("\""));
+        str = str.substr(0, str.find_last_not_of("\"") + 1);
+    }
+    /*if (str.find("\"") != std::string::npos)
     {
         str = str.substr(str.find_first_not_of("\""));
         str = str.substr(0, str.find_first_of("\""));
@@ -45,7 +85,7 @@ std::string GetStringValue(const std::string& TextBuffer)
     {
         str = str.substr(str.find_first_not_of(" "));
         str = str.substr(0, str.find_first_of(" "));
-    }
+    }*/
     return str;
 }
 
@@ -261,9 +301,10 @@ int ModParser::FindKey(std::string str)
     size_t pos = str.find("=");
     if (pos == std::string::npos)
         return -1;
-    std::string name = str.substr(0, pos);
+    std::string name = Trim(str.substr(0, pos));
+    /*std::string name = str.substr(0, pos);
     name = name.substr(name.find_first_not_of(" "));
-    name = name.substr(0, name.find_last_not_of(" ") + 1);
+    name = name.substr(0, name.find_last_not_of(" ") + 1);*/
     int idx = FindKeyNameIdx(name);
     return idx;
 }
@@ -272,9 +313,10 @@ int ModParser::FindSection(std::string str)
 {
     if (str.find("[") == std::string::npos || str.find("]") == std::string::npos)
         return -1;
-    std::string name = str;
+    std::string name = Trim(str);
+    /*std::string name = str;
     name = name.substr(name.find_first_not_of(" "));
-    name = name.substr(0, name.find_last_not_of(" ") + 1);
+    name = name.substr(0, name.find_last_not_of(" ") + 1);*/
     int idx = FindSectionNameIdx(name);
     return idx;
 }
