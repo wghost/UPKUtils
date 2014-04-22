@@ -197,6 +197,7 @@ class UPKInfo
         std::string FormatExport(uint32_t idx, bool verbose = false);
     protected:
         FPackageFileSummary Summary;
+        std::vector<char> UnknownDataChunk;
         std::vector<FNameEntry> NameTable;
         std::vector<FObjectImport> ImportTable;
         std::vector<FObjectExport> ExportTable;

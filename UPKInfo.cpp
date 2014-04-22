@@ -126,13 +126,12 @@ bool UPKInfo::Read(std::istream& stream)
         stream.read(reinterpret_cast<char*>(&CompressedChunk.CompressedSize), 4);
         Summary.CompressedChunks.push_back(CompressedChunk);
     }
-    /*std::cout << "offset = " << FormatHEX((uint32_t)stream.tellg()) << "\n";
-    while (stream.tellg() < Summary.NameOffset)
+    UnknownDataChunk.clear();
+    UnknownDataChunk.resize(Summary.NameOffset - stream.tellg());
+    if (UnknownDataChunk.size() > 0)
     {
-        uint32_t tmp;
-        stream.read(reinterpret_cast<char*>(&tmp), 4);
-        std::cout << "unknown = " << FormatHEX(tmp) << " (" << tmp << ")\n";
-    }*/
+        stream.read(UnknownDataChunk.data(), UnknownDataChunk.size());
+    }
     if (Compressed == true)
     {
         ReadError = UPKReadErrors::IsCompressed;
