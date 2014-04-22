@@ -66,12 +66,13 @@ protected:
         size_t Offset;
         size_t RelOffset;
         size_t MaxOffset;
-        std::string Behaviour;
+        std::string Behavior;
         bool Good;
         bool BeforeUsed;
         unsigned BeforeMemSize;
+        bool isInsideScript;
     } ScriptState;
-    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.MaxOffset = 0; ScriptState.Behaviour = "KEEP"; ScriptState.BeforeUsed = false; ScriptState.BeforeMemSize = 0; }
+    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.MaxOffset = 0; ScriptState.Behavior = "KEEP"; ScriptState.BeforeUsed = false; ScriptState.BeforeMemSize = 0; ScriptState.isInsideScript = false; }
     bool SetBad() { return (ScriptState.Good = false); }
     bool SetGood() { return (ScriptState.Good = true); }
     void AddUPKName(std::string upkname);
@@ -111,6 +112,10 @@ protected:
     bool WriteAfterCode(const std::string& Param);
     /// end-of-block indicators are just skipped, as they don't actually used
     bool Sink(const std::string& Param);
+    /// adding new entries
+    bool WriteAddNameEntry(const std::string& Param);
+    bool WriteAddImportEntry(const std::string& Param);
+    bool WriteAddExportEntry(const std::string& Param);
     /// helpers
     bool SetDataOffset(const std::string& Param, bool isEnd, bool isBeforeData);
     bool CheckMoveResize(size_t DataSize);
@@ -118,6 +123,7 @@ protected:
     bool WriteBinaryData(const std::vector<char>& DataChunk);
     bool IsInsideScope(size_t DataSize = 1);
     size_t GetDiff(size_t DataSize);
+    bool CheckBehavior();
     /// parse script
     std::string ParseScript(std::string ScriptData, unsigned* ScriptMemSizeRef = nullptr);
     bool IsHEX(std::string word);
