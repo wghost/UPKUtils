@@ -1537,7 +1537,8 @@ std::string GetWord(std::istream& in)
         while (isxdigit(ch) && in.good())
         {
             ch = in.get();
-            word += ch;
+            if (isxdigit(ch))
+                word += ch;
         }
         return word;
     }

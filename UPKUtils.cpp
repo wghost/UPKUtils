@@ -484,11 +484,11 @@ bool UPKUtils::AddExportEntry(FObjectExport Entry)
     Summary.HeaderSize += Entry.EntrySize;
     /// add entry
     ++Summary.ExportCount;
-    if (Entry.SerialSize < 4)
+    if (Entry.SerialSize < 16) /// PrevObject + NoneIdx + NextRef
     {
-        Entry.SerialSize = 4;
+        Entry.SerialSize = 16;
     }
-    Entry.SerialOffset = UPKFileSize;
+    Entry.SerialOffset = UPKFileSize + Entry.EntrySize;
     ExportTable.push_back(Entry);
     /// increase offsets
     Summary.DependsOffset += Entry.EntrySize;
@@ -514,6 +514,7 @@ bool UPKUtils::AddExportEntry(FObjectExport Entry)
     std::vector<char> serializedEntry(Entry.SerialSize);
     UObjectReference PrevObjRef = oldExportCount;
     memcpy(serializedEntry.data(), reinterpret_cast<char*>(&PrevObjRef), sizeof(PrevObjRef));
+    memcpy(serializedEntry.data() + sizeof(PrevObjRef), reinterpret_cast<char*>(&NoneIdx), sizeof(NoneIdx));
     UPKFile.write(serializedEntry.data(), serializedEntry.size());
     /// reload package
     UPKUtils::Reload();
