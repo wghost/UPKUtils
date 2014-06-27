@@ -31,7 +31,7 @@ int main(int argN, char* argV[])
     else
         ss >> dec >> Offset;
 
-    cout << "Offset = " << FormatHEX(Offset) << " (" << Offset << ")\n";
+    cout << "Offset = " << FormatHEX((uint32_t)Offset) << " (" << Offset << ")\n";
 
     UPKInfo PackageInfo(package);
     UPKReadErrors err = PackageInfo.GetError();

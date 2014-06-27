@@ -15,7 +15,7 @@ std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& i
         Property = UDefaultProperty{};
         ss << Property.Deserialize(stream, info, owner, unsafe, quick);
         DefaultProperties.push_back(Property);
-    } while (Property.GetName() != "None" && stream.good() && stream.tellg() < maxOffset);
+    } while (Property.GetName() != "None" && stream.good() && (size_t)stream.tellg() < maxOffset);
     PropertySize = (unsigned)stream.tellg() - (unsigned)PropertyOffset;
     return ss.str();
 }

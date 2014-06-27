@@ -337,7 +337,7 @@ bool ModScript::SetGlobalOffset(const std::string& Param)
     ScriptState.Scope = UPKScope::Package;
     ScriptState.Offset = GetUnsignedValue(Param);
     ScriptState.MaxOffset = ScriptState.Package.GetFileSize() - 1;
-    *ExecutionResults << "Global offset: " << FormatHEX(ScriptState.Offset)
+    *ExecutionResults << "Global offset: " << FormatHEX((uint32_t)ScriptState.Offset)
                       << " (" << ScriptState.Offset << ")" << std::endl;
     if (ScriptState.Package.CheckValidFileOffset(ScriptState.Offset) == false)
     {
@@ -533,7 +533,7 @@ bool ModScript::SetRelOffset(const std::string& Param)
         return SetBad();
     }
     ScriptState.RelOffset = GetUnsignedValue(Param);
-    *ExecutionResults << "Relative offset: " << FormatHEX(ScriptState.RelOffset)
+    *ExecutionResults << "Relative offset: " << FormatHEX((uint32_t)ScriptState.RelOffset)
                       << " (" << ScriptState.RelOffset << ")" << std::endl;
     if (!IsInsideScope())
     {
@@ -620,7 +620,7 @@ bool ModScript::WriteReplacementCode(const std::string& Param)
     ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
     ScriptSize = DataChunk.size();
     *ExecutionResults << "New script memory size: " << ScriptMemorySize << " (" << FormatHEX(ScriptMemorySize) << ")\n";
-    *ExecutionResults << "New script serial size: " << ScriptSize << " (" << FormatHEX(ScriptSize) << ")\n";
+    *ExecutionResults << "New script serial size: " << ScriptSize << " (" << FormatHEX((uint32_t)ScriptSize) << ")\n";
     /// writing sizes
     std::vector<char> SizesDataChunk(8);
     memcpy(SizesDataChunk.data(), reinterpret_cast<char*>(&ScriptMemorySize), 4);
@@ -711,12 +711,12 @@ bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk)
         return SetBad();
     }
     std::vector<char> BackupData;
-    *ExecutionResults << "Writing data chunk of size " << FormatHEX(DataChunk.size())
+    *ExecutionResults << "Writing data chunk of size " << FormatHEX((uint32_t)DataChunk.size())
                       << " (" << DataChunk.size() << ") at"
                       << "\nScope: " << FormatUPKScope(ScriptState.Scope)
-                      << "\nOffset (absolute): " << FormatHEX(ScriptState.Offset)
+                      << "\nOffset (absolute): " << FormatHEX((uint32_t)ScriptState.Offset)
                       << " (" << ScriptState.Offset << ")"
-                      << "\nOffset (scope-relative): " << FormatHEX(ScriptState.RelOffset)
+                      << "\nOffset (scope-relative): " << FormatHEX((uint32_t)ScriptState.RelOffset)
                       << " (" << ScriptState.RelOffset << ")\n";
     if (!ScriptState.Package.WriteData(ScriptState.Offset + ScriptState.RelOffset, DataChunk, &BackupData))
     {
@@ -1039,7 +1039,7 @@ bool ModScript::SetDataOffset(const std::string& Param, bool isEnd, bool isBefor
             {
                 ScriptState.MaxOffset = ScriptState.Offset + DataChunk.size() - 1;
             }
-            *ExecutionResults << "Data found!\nGlobal offset: " << FormatHEX(ScriptState.Offset)
+            *ExecutionResults << "Data found!\nGlobal offset: " << FormatHEX((uint32_t)ScriptState.Offset)
                               << " (" << ScriptState.Offset << ")" << std::endl;
         }
         else
@@ -1062,7 +1062,7 @@ bool ModScript::SetDataOffset(const std::string& Param, bool isEnd, bool isBefor
             {
                 ScriptState.MaxOffset = ScriptState.Offset + ScriptState.RelOffset + DataChunk.size() - 1;
             }
-            *ExecutionResults << "Data found!\nRelative offset: " << FormatHEX(ScriptState.RelOffset)
+            *ExecutionResults << "Data found!\nRelative offset: " << FormatHEX((uint32_t)ScriptState.RelOffset)
                               << " (" << ScriptState.RelOffset << ")" << std::endl;
         }
         else
@@ -1243,7 +1243,7 @@ bool ModScript::WriteAfterHEX(const std::string& Param)
         if (ScriptSize != 0)
         {
             ScriptSize = (int)ScriptSize + (int)DataChunk.size() - (int)ScopeSize;
-            *ExecutionResults << "New script serial size: " << ScriptSize << " (" << FormatHEX(ScriptSize) << ")\n";
+            *ExecutionResults << "New script serial size: " << ScriptSize << " (" << FormatHEX((uint32_t)ScriptSize) << ")\n";
             std::vector<char> SizeDataChunk(4);
             memcpy(SizeDataChunk.data(), reinterpret_cast<char*>(&ScriptSize), 4);
             size_t SavedRelOffset = ScriptState.RelOffset;
@@ -1276,7 +1276,7 @@ bool ModScript::WriteAfterCode(const std::string& Param)
         if (ScriptMemSize != 0 && ((int)MemSize - (int)ScriptState.BeforeMemSize) != 0)
         {
             ScriptMemSize = (int)ScriptMemSize + (int)MemSize - (int)ScriptState.BeforeMemSize;
-            *ExecutionResults << "New script memory size: " << ScriptMemSize << " (" << FormatHEX(ScriptMemSize) << ")\n";
+            *ExecutionResults << "New script memory size: " << ScriptMemSize << " (" << FormatHEX((uint32_t)ScriptMemSize) << ")\n";
             std::vector<char> SizeDataChunk(4);
             memcpy(SizeDataChunk.data(), reinterpret_cast<char*>(&ScriptMemSize), 4);
             size_t SavedRelOffset = ScriptState.RelOffset;
