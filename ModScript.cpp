@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <cctype>
+#include <algorithm>
 
 std::string FormatUPKScope(UPKScope scope)
 {
@@ -255,6 +256,7 @@ void ModScript::AddUPKName(std::string upkname)
 bool ModScript::OpenPackage(const std::string& Param)
 {
     std::string UPKFileName = GetStringValue(Param);
+    std::transform(UPKFileName.begin(), UPKFileName.end(), UPKFileName.begin(), ::tolower);
     *ExecutionResults << "Opening package ...\n";
     if (ScriptState.UPKName == UPKFileName)
     {
@@ -320,6 +322,7 @@ bool ModScript::SetGUID(const std::string& Param)
     }
     /*PackageName = str.substr(pos + 1);
     GUID = str.substr(0, pos);*/
+    std::transform(PackageName.begin(), PackageName.end(), PackageName.begin(), ::tolower);
     GUIDs.insert({PackageName, GUID});
     *ExecutionResults << "Added allowed GUID:\n";
     *ExecutionResults << "Package: " << PackageName << " GUID: " << GUID << std::endl;
@@ -1491,6 +1494,38 @@ bool ModScript::AddAlias(const std::string& Param)
     return SetGood();
 }
 
+std::string EatWhite(std::string str, char delim = 0)
+{
+    std::string ret, tail = "";
+    unsigned length = str.length();
+    if (delim != 0) /// use delimiter
+    {
+        size_t pos = str.find_first_of(delim);
+        if (pos != std::string::npos)
+        {
+            length = pos;
+            tail = str.substr(pos);
+        }
+    }
+    for (unsigned i = 0; i < length; ++i)
+    {
+        if (!isspace(str[i]))
+            ret += str[i];
+    }
+    ret += tail;
+    return ret;
+}
+
+bool HasText(std::string str)
+{
+    std::string testStr = EatWhite(str);
+    if (testStr.substr(0, 4) == "<%t\"")
+    {
+        return true;
+    }
+    return false;
+}
+
 std::string GetWord(std::istream& in)
 {
     std::string word;
@@ -1514,10 +1549,31 @@ std::string GetWord(std::istream& in)
     /// extract token
     if (ch == '<')
     {
-        while (ch != '>' && in.good())
+        /*while (ch != '>' && in.good())
         {
             ch = in.get();
             word += ch;
+        }*/
+        bool done = false;
+        while (!done && in.good())
+        {
+            ch = in.get();
+            word += ch;
+            if (ch == '>')
+            {
+                if (!HasText(word))
+                {
+                    done = true;
+                }
+                else
+                {
+                    std::string testStr = EatWhite(word);
+                    if (testStr.substr(testStr.length()-2, 2) == "\">")
+                    {
+                        done = true;
+                    }
+                }
+            }
         }
         return word;
     }
@@ -1550,28 +1606,6 @@ std::string GetWord(std::istream& in)
             word += ch;
     }
     return word;
-}
-
-std::string EatWhite(std::string str, char delim = 0)
-{
-    std::string ret, tail = "";
-    unsigned length = str.length();
-    if (delim != 0) /// use delimiter
-    {
-        size_t pos = str.find_first_of(delim);
-        if (pos != std::string::npos)
-        {
-            length = pos;
-            tail = str.substr(pos);
-        }
-    }
-    for (unsigned i = 0; i < length; ++i)
-    {
-        if (!isspace(str[i]))
-            ret += str[i];
-    }
-    ret += tail;
-    return ret;
 }
 
 std::string ExtractString(std::string str)
