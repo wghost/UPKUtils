@@ -1,0 +1,137 @@
+MOD_NAME=PatchUPK Mod Example
+AUTHOR=wghost81 aka Wasteland Ghost
+DESCRIPTION=This is sample mod file to demonstrate program features. Do not try to install this!
+
+For more info see PatchUPK_Readme.txt.
+
+Mod files have to be plain ASCII text files! Do not use Unicode!
+
+Compatible with ToolBoks Custom Mod format, can be used to install ToolBoks custom mods for EU/EW.
+
+Version: 3.0
+
+Compatible with XCOM Enemy Unknown / Enemy Within version:
+ - versions list
+
+
+// Next line is here to generate error and prevent accidental installation of the sample.
+UPK_FILE=FileDoesNotExist.upk
+ 
+{ Curly brackets are used for comments.
+  Comments may be multi-line.
+  Try not to forget close brackets opened. }
+  
+{ Do not use curly brackets inside comments!!! }
+
+// You can use C-style comments as well
+
+/* Multi-line
+   C-style
+   comment */
+  
+/* Open XComStrategyGame.upk
+   Do not add path to upk file if you're using it with PatcherGUI!
+   You need to open upk file only once to apply multiple changes,
+   but you still may use ToolBoks style and set upk file name for every single change:
+   file will not be reopened. */
+UPK_FILE=XComStrategyGame.upk
+
+// ToolBoks-style patching, using absolute offsets and binary replacement data
+
+/* Offsets can be dec or hex values. Hex values must begin with 0x
+   Offset key sets patching scope to entire UPK. You can change anything, except
+   first 8 bytes: package signature and version.  */
+OFFSET=0x1234ABC
+[MODDED_HEX]
+// You may use comments here...
+00 01 0A 0B FF  /* ... and here... */ 00 AA /* ... and here... */
+01 23
+45
+
+// Using external binary files
+
+/* If you're using PatcherGUI, path to binary file must be either absolute or relative to mod file
+   (Your_mod_file_name.txt) location.
+   File name must match Full.Object.Name.ext pattern. Allowed extensions are:
+   .NameEntry for NameTable entry
+   .ImportEntry for ImportTable entry
+   .ExportEntry for ExportTable entry */
+MODDED_FILE=Path-to-file/Full.Object.Name.ext
+
+// User-friendly way to set values
+
+// You may use BYTE key to set single byte value. Byte values are unsigned!
+BYTE=0x0A { hex }
+BYTE=10   { or dec }
+
+// You may use FLOAT key to set 4-byte floating point value
+FLOAT=123.4
+
+/* You may use INTEGER key to set 4-byte integer value.
+  WARNING! No hex values are allowed! For hex representation use UNSIGNED key! */
+INTEGER=15
+
+// You may use UNSIGNED key to set 4-byte unsigned integer value.
+UNSIGNED=0xA { hex }
+UNSIGNED=10  { or dec }
+
+// Object-oriented patching
+
+// You may use full object name as it is shown in UE Explorer to calculate its offset automatically
+OBJECT=XGBattleDesc.InitAlienLoadoutInfos
+OBJECT=XGStrategyAI.GetAltWeapon:AUTO
+OBJECT=XGStrategyAI.GetAltWeapon:MOVE
+OBJECT=XGStrategyAI.GetAltWeapon:KEEP
+/* Empty specifier is equal to KEEP. KEEP is the safest behaviour: all changes applied to current scope only and
+   if data chunk length exceeds current scope, program will generate an error.
+   MOVE forces the object move before applying any changes.
+   AUTO allows program to auto-move/resize object when needed.
+   Note that specifiers themselves do not make any changes: they work when you start to write actual data. */
+
+/* You may use relative offsets to patch data inside specified object.
+   If current scope is set to package, relative offset will be added to global offset. */
+REL_OFFSET=0x28
+
+// Changing names and expanding functions
+
+// Rename GetAltWeapon to #GetPodProgs
+RENAME=GetAltWeapon:#GetPodProgs
+
+/* You may expand function by specifying its new ObjectSize
+   (not file size from script header, but full data chunk length!)
+   If new size is equal to old size, function will not be expanded.
+   EXPAND_FUNCTION sets current offset value to new data offset,
+   so you don't need to specify offset after using it. */
+EXPAND_FUNCTION=XGStrategyAI.GetAltWeapon:300
+// You may undo function expand.
+EXPAND_UNDO=XGStrategyAI.GetAltWeapon
+
+// Before-after style patching
+
+[BEFORE_HEX]
+01 AA BC 23
+[/BEFORE_HEX]
+
+[AFTER_HEX]
+BB AC 22 13
+[/AFTER_HEX]
+
+// Using pseudo-code
+
+// You may use pseudo-code instead of hex references. For more info see PatchUPK_Readme.txt.
+OBJECT=XGStrategyAI.GetNumOutsiders
+[REPLACEMENT_CODE]
+// if(Game().GetDifficulty() >= 2)
+07 [@label1] 99 19 1B <Game> 16 0A 00 <XGStrategy.GetDifficulty.ReturnValue> 00 1B <GetDifficulty> 16 2C <%b2> 16
+	// return 2
+	04 2C 02
+// goto (else)
+06 [@label2]
+	[#label1]
+	// return 1
+	04 26
+[#label2]
+// return ReturnValue
+04 3A <.ReturnValue>
+// EOS
+53
