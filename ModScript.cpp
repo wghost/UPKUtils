@@ -729,8 +729,31 @@ bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk)
     *ExecutionResults << "Write successful!" << std::endl;
     /// backup info
     std::ostringstream ss;
-    ss << "OFFSET=" << (ScriptState.Offset + ScriptState.RelOffset) << "\n\n"
-       << "[MODDED_HEX]\n" << MakeTextBlock(BackupData.data(), BackupData.size()) << "\n\n";
+    /*ss << "OFFSET=" << (ScriptState.Offset + ScriptState.RelOffset) << "\n\n"
+       << "[MODDED_HEX]\n" << MakeTextBlock(BackupData.data(), BackupData.size()) << "\n\n";*/
+    switch (ScriptState.Scope)
+    {
+        case UPKScope::Object:
+            ss << "OBJECT=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+            break;
+        case UPKScope::Import:
+            ss << "IMPORT_ENTRY=" << ScriptState.Package.GetImportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+            break;
+        case UPKScope::Export:
+            ss << "EXPORT_ENTRY=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+            break;
+        case UPKScope::Name:
+            ss << "NAME_ENTRY=" << ScriptState.Package.GetNameEntry(ScriptState.ObjIdx).Name << "\n\n";
+            break;
+        default:
+            ss << "OFFSET=" << ScriptState.Offset << "\n\n";
+            break;
+    }
+    if (ScriptState.RelOffset > 0)
+    {
+        ss << "REL_OFFSET=" << ScriptState.RelOffset << "\n\n";
+    }
+    ss << "[MODDED_HEX]\n" << MakeTextBlock(BackupData.data(), BackupData.size()) << "\n\n";
     ss << BackupScript[ScriptState.UPKName];
     BackupScript[ScriptState.UPKName] = ss.str();
     return SetGood();
@@ -1041,6 +1064,10 @@ bool ModScript::SetDataOffset(const std::string& Param, bool isEnd, bool isBefor
             if (isBeforeData) /// restrict scope for BEFORE/AFTER patching
             {
                 ScriptState.MaxOffset = ScriptState.Offset + DataChunk.size() - 1;
+            }
+            else /// set scope to entire package
+            {
+                ScriptState.MaxOffset = ScriptState.Package.GetFileSize() - 1;
             }
             *ExecutionResults << "Data found!\nGlobal offset: " << FormatHEX((uint32_t)ScriptState.Offset)
                               << " (" << ScriptState.Offset << ")" << std::endl;
