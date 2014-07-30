@@ -3,17 +3,24 @@
 -----------------------------------------------------------------------------------------------------------------
 
 PatchUPK is a Windows console utility to patch XCOM packages (upk files). Packages must be decompressed first
-(may use Gildor's decompress.exe: http://www.gildor.org/downloads).
+(using DecompressLZO or Gildor's decompress.exe for Windows).
 
 PatchUPK operates on special script files and applies subsequent changes to packages.
 
-Version 4.0, 04/24/2014
+Version 5.0, 07/30/2014
 
 Wasteland Ghost aka wghost81 (wghost81@gmail.com).
 
 -----------------------------------------------------------------------------------------------------------------
     Changelist:
 -----------------------------------------------------------------------------------------------------------------
+
+07/30/2014:
+    - fixed bug with global FIND_HEX usage.
+    - '<' and '>' symbols in text strings (pseudo-code) are now allowed, "> combination with any white-spaces in
+      between is still disallowed inside a string (for the sake of backward compatibility).
+    - uninstall script now uses object-oriented approach instead of global offset to ensure compatibility with
+      new objects (for future mods).
 
 04/24/2014:
     - white-spaces handling improved.

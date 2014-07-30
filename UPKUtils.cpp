@@ -734,9 +734,9 @@ std::vector<char> UPKUtils::SerializeHeader()
         ss.write(reinterpret_cast<char*>(&CompressedChunk.CompressedOffset), 4);
         ss.write(reinterpret_cast<char*>(&CompressedChunk.CompressedSize), 4);
     }
-    if (UnknownDataChunk.size() > 0)
+    if (Summary.UnknownDataChunk.size() > 0)
     {
-        ss.write(UnknownDataChunk.data(), UnknownDataChunk.size());
+        ss.write(Summary.UnknownDataChunk.data(), Summary.UnknownDataChunk.size());
     }
     for (unsigned i = 0; i < Summary.NameCount; ++i)
     {

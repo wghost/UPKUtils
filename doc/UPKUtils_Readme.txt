@@ -4,7 +4,7 @@
 
 UPK Utils are a set of Windows console applications for analysing and patching uncompressed XCOM packages (.upk).
 
-Version 4.0, 04/24/2014
+Version 5.0, 07/30/2014
 
 Wasteland Ghost aka wghost81 (wghost81@gmail.com).
 
@@ -123,10 +123,22 @@ Usage:
 CompareUPK OldPackage.upk NewPackage.upk
 
 -----------------------------------------------------------------------------------------------------------------
+    DecompressLZO
+-----------------------------------------------------------------------------------------------------------------
+
+An utility to decompress upk files using LZO compression algorithm.
+
+Usage: DecompressLZO CompressedResourceFile.upk
+
+Decompressed package is saved to CompressedResourceFile.upk.uncompr file.
+
+Works with compressed and fully compressed packages.
+
+-----------------------------------------------------------------------------------------------------------------
     XComLZO
 -----------------------------------------------------------------------------------------------------------------
 
-An utility to pack/unpack data using LZO compression algorithm. Aimed to work with XCOM-style archives.
+An utility to pack/unpack raw data using LZO compression algorithm.
 
 Usage: XComLZO p inputFileName
     or XComLZO u inputFileName

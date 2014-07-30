@@ -126,11 +126,20 @@ bool UPKInfo::Read(std::istream& stream)
         stream.read(reinterpret_cast<char*>(&CompressedChunk.CompressedSize), 4);
         Summary.CompressedChunks.push_back(CompressedChunk);
     }
-    UnknownDataChunk.clear();
-    UnknownDataChunk.resize(Summary.NameOffset - stream.tellg());
-    if (UnknownDataChunk.size() > 0)
+    Summary.UnknownDataChunk.clear();
+    /// for uncompressed packages unknown data is located between NumCompressedChunks and NameTable
+    if (Summary.NumCompressedChunks < 1 && Summary.NameOffset - stream.tellg() > 0)
     {
-        stream.read(UnknownDataChunk.data(), UnknownDataChunk.size());
+        Summary.UnknownDataChunk.resize(Summary.NameOffset - stream.tellg());
+    }
+    /// for compressed packages unknown data is located between last CompressedChunk entry and first compressed data
+    else if (Summary.NumCompressedChunks > 0 && Summary.NameOffset - stream.tellg() > 0)
+    {
+        Summary.UnknownDataChunk.resize(Summary.CompressedChunks[0].CompressedOffset - stream.tellg());
+    }
+    if (Summary.UnknownDataChunk.size() > 0)
+    {
+        stream.read(Summary.UnknownDataChunk.data(), Summary.UnknownDataChunk.size());
     }
     if (Compressed == true)
     {
@@ -439,6 +448,11 @@ std::string UPKInfo::FormatSummary()
            << "\tUncompressedSize: " << Summary.CompressedChunks[i].UncompressedSize << std::endl
            << "\tCompressedOffset: " << FormatHEX(Summary.CompressedChunks[i].CompressedOffset) << "(" << Summary.CompressedChunks[i].CompressedOffset << ")" << std::endl
            << "\tCompressedSize: " << Summary.CompressedChunks[i].CompressedSize << std::endl;
+    }
+    if (Summary.UnknownDataChunk.size() > 0)
+    {
+        ss << "Unknown data size: " << Summary.UnknownDataChunk.size() << std::endl;
+        ss << "Unknown data: " << FormatHEX(Summary.UnknownDataChunk) << std::endl;
     }
     return ss.str();
 }

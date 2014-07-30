@@ -54,38 +54,24 @@
 				<Option compiler="gcc" />
 				<Option parameters="XComStrategyGame.upk" />
 				<Compiler>
-					<Add directory="$(#wx)/include" />
-					<Add directory="$(#wx)/lib/gcc_lib/mswu" />
+					<Add option="`wx-config --cxxflags`" />
 				</Compiler>
 				<Linker>
-					<Add library="$(#wx)\lib\gcc_lib\libwxmsw30u.a" />
-					<Add library="$(#wx)\lib\gcc_lib\libwxtiff.a" />
-					<Add library="$(#wx)\lib\gcc_lib\libwxjpeg.a" />
-					<Add library="$(#wx)\lib\gcc_lib\libwxpng.a" />
-					<Add library="$(#wx)\lib\gcc_lib\libwxzlib.a" />
-					<Add library="$(#wx)\lib\gcc_lib\libwxregexu.a" />
-					<Add library="$(#wx)\lib\gcc_lib\libwxexpat.a" />
-					<Add library="kernel32" />
-					<Add library="user32" />
-					<Add library="gdi32" />
-					<Add library="comdlg32" />
-					<Add library="winspool" />
-					<Add library="winmm" />
-					<Add library="shell32" />
-					<Add library="comctl32" />
-					<Add library="ole32" />
-					<Add library="oleaut32" />
-					<Add library="uuid" />
-					<Add library="rpcrt4" />
-					<Add library="advapi32" />
-					<Add library="wsock32" />
-					<Add directory="$(#wx)/lib/gcc_lib/mswu" />
+					<Add option="`wx-config --libs`" />
 				</Linker>
 			</Target>
 			<Target title="CompareUPK">
 				<Option output="bin/CompareUPK" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin/" />
 				<Option object_output="obj/CompareUPK" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
+			<Target title="DecompressLZO">
+				<Option output="bin/DecompressLZO" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/DecompressLZO" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Option parameters="XComStrategyGame.upk" />
@@ -97,12 +83,11 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
-		<Linker>
-			<Add option="-static-libgcc" />
-			<Add option="-static-libstdc++" />
-		</Linker>
 		<Unit filename="CompareUPK.cpp">
 			<Option target="CompareUPK" />
+		</Unit>
+		<Unit filename="DecompressLZO.cpp">
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="DeserializeAll.cpp">
 			<Option target="DeserializeAll" />
@@ -172,6 +157,19 @@
 			<Option target="MoveExpandFunction" />
 			<Option target="FindObjectEntry" />
 			<Option target="DeserializeAll" />
+		</Unit>
+		<Unit filename="lzoconf.h">
+			<Option target="DecompressLZO" />
+		</Unit>
+		<Unit filename="lzodefs.h">
+			<Option target="DecompressLZO" />
+		</Unit>
+		<Unit filename="minilzo.c">
+			<Option compilerVar="CC" />
+			<Option target="DecompressLZO" />
+		</Unit>
+		<Unit filename="minilzo.h">
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Extensions>
 			<code_completion />

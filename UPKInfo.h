@@ -97,6 +97,7 @@ struct FPackageFileSummary
     uint32_t CompressionFlags;
     uint32_t NumCompressedChunks;
     std::vector<FCompressedChunk> CompressedChunks;
+    std::vector<char> UnknownDataChunk;
     /// memory
     size_t HeaderSizeOffset;
     size_t NameCountOffset;
@@ -184,6 +185,7 @@ class UPKInfo
         const FNameEntry& GetNameEntry(uint32_t idx);
         FGuid GetGUID() { return Summary.GUID; }
         bool IsCompressed() { return Compressed; }
+        bool IsFullyCompressed() { return (Compressed && CompressedChunk); }
         UPKReadErrors GetError() { return ReadError; }
         uint32_t GetCompressionFlags() { return Summary.CompressionFlags; }
         /// format header to text string
@@ -197,7 +199,6 @@ class UPKInfo
         std::string FormatExport(uint32_t idx, bool verbose = false);
     protected:
         FPackageFileSummary Summary;
-        std::vector<char> UnknownDataChunk;
         std::vector<FNameEntry> NameTable;
         std::vector<FObjectImport> ImportTable;
         std::vector<FObjectExport> ExportTable;
