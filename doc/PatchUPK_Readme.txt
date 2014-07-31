@@ -408,8 +408,7 @@ OBJECT=XGStrategyAI.GetNumOutsiders:AUTO
     Adding new names and objects
 -----------------------------------------------------------------------------------------------------------------
 
-Warning! This feature is highly experimental, incompatible with uninstall feature and can completely mess up your
-packages, so use this with caution and for experimentation purposes only! Don't use in actual mods!
+Warning! This feature is highly experimental and can completely mess up your packages! Use with caution!
 
 There are three main keys/sections for adding new objects:
 1. ADD_NAME_ENTRY - adds a name entry into name table.
