@@ -209,9 +209,9 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     else if (Type == "Color")
     {
         uint8_t R, G, B, A;
-        stream.read(reinterpret_cast<char*>(&B), sizeof(B));
-        stream.read(reinterpret_cast<char*>(&G), sizeof(G));
         stream.read(reinterpret_cast<char*>(&R), sizeof(R));
+        stream.read(reinterpret_cast<char*>(&G), sizeof(G));
+        stream.read(reinterpret_cast<char*>(&B), sizeof(B));
         stream.read(reinterpret_cast<char*>(&A), sizeof(A));
         ss << "\tColor (R, G, B, A) = ("
            << FormatHEX(R) << ", " << FormatHEX(G) << ", " << FormatHEX(B) << ", " << FormatHEX(A) << ") = ("
