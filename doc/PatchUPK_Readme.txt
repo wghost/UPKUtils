@@ -7,13 +7,19 @@ PatchUPK is a Windows console utility to patch XCOM packages (upk files). Packag
 
 PatchUPK operates on special script files and applies subsequent changes to packages.
 
-Version 5.0, 07/30/2014
+Version 5.3, 09/06/2014
 
 Wasteland Ghost aka wghost81 (wghost81@gmail.com).
 
 -----------------------------------------------------------------------------------------------------------------
     Changelist:
 -----------------------------------------------------------------------------------------------------------------
+
+09/06/2014:
+    - fixed bug with resizing State objects.
+
+09/05/2014:
+    - fixed bug with linking new export entries.
 
 07/30/2014:
     - fixed bug with global FIND_HEX usage.

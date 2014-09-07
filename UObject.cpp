@@ -465,6 +465,8 @@ std::string UState::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&StateMapSize), sizeof(StateMapSize));
     ss << "\tStateMapSize = " << FormatHEX(StateMapSize) << " (" << StateMapSize << ")" << std::endl;
     StateMap.clear();
+    if (StateMapSize > ScriptSerialSize) /// bad data malloc error prevention
+        StateMapSize = 0;
     for (unsigned i = 0; i < StateMapSize; ++i)
     {
         std::pair<UNameIndex, UObjectReference> MapElement;
@@ -497,6 +499,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumComponents), sizeof(NumComponents));
     ss << "\tNumComponents = " << FormatHEX(NumComponents) << " (" << NumComponents << ")" << std::endl;
     Components.clear();
+    if (NumComponents > ScriptSerialSize) /// bad data malloc error prevention
+        NumComponents = 0;
     for (unsigned i = 0; i < NumComponents; ++i)
     {
         std::pair<UNameIndex, UObjectReference> MapElement;
@@ -509,6 +513,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumInterfaces), sizeof(NumInterfaces));
     ss << "\tNumInterfaces = " << FormatHEX(NumInterfaces) << " (" << NumInterfaces << ")" << std::endl;
     Interfaces.clear();
+    if (NumInterfaces > ScriptSerialSize) /// bad data malloc error prevention
+        NumInterfaces = 0;
     for (unsigned i = 0; i < NumInterfaces; ++i)
     {
         std::pair<UObjectReference, uint32_t> MapElement;
@@ -521,6 +527,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumDontSortCategories), sizeof(NumDontSortCategories));
     ss << "\tNumDontSortCategories = " << FormatHEX(NumDontSortCategories) << " (" << NumDontSortCategories << ")" << std::endl;
     DontSortCategories.clear();
+    if (NumDontSortCategories > ScriptSerialSize) /// bad data malloc error prevention
+        NumDontSortCategories = 0;
     for (unsigned i = 0; i < NumDontSortCategories; ++i)
     {
         UNameIndex Element;
@@ -532,6 +540,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumHideCategories), sizeof(NumHideCategories));
     ss << "\tNumHideCategories = " << FormatHEX(NumHideCategories) << " (" << NumHideCategories << ")" << std::endl;
     HideCategories.clear();
+    if (NumHideCategories > ScriptSerialSize) /// bad data malloc error prevention
+        NumHideCategories = 0;
     for (unsigned i = 0; i < NumHideCategories; ++i)
     {
         UNameIndex Element;
@@ -543,6 +553,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumAutoExpandCategories), sizeof(NumAutoExpandCategories));
     ss << "\tNumAutoExpandCategories = " << FormatHEX(NumAutoExpandCategories) << " (" << NumAutoExpandCategories << ")" << std::endl;
     AutoExpandCategories.clear();
+    if (NumAutoExpandCategories > ScriptSerialSize) /// bad data malloc error prevention
+        NumAutoExpandCategories = 0;
     for (unsigned i = 0; i < NumAutoExpandCategories; ++i)
     {
         UNameIndex Element;
@@ -554,6 +566,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumAutoCollapseCategories), sizeof(NumAutoCollapseCategories));
     ss << "\tNumAutoCollapseCategories = " << FormatHEX(NumAutoCollapseCategories) << " (" << NumAutoCollapseCategories << ")" << std::endl;
     AutoCollapseCategories.clear();
+    if (NumAutoCollapseCategories > ScriptSerialSize) /// bad data malloc error prevention
+        NumAutoCollapseCategories = 0;
     for (unsigned i = 0; i < NumAutoCollapseCategories; ++i)
     {
         UNameIndex Element;
@@ -567,6 +581,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumClassGroups), sizeof(NumClassGroups));
     ss << "\tNumClassGroups = " << FormatHEX(NumClassGroups) << " (" << NumClassGroups << ")" << std::endl;
     ClassGroups.clear();
+    if (NumClassGroups > ScriptSerialSize) /// bad data malloc error prevention
+        NumClassGroups = 0;
     for (unsigned i = 0; i < NumClassGroups; ++i)
     {
         UNameIndex Element;
@@ -577,6 +593,8 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     }
     stream.read(reinterpret_cast<char*>(&NativeClassNameLength), sizeof(NativeClassNameLength));
     ss << "\tNativeClassNameLength = " << FormatHEX(NativeClassNameLength) << std::endl;
+    if (NativeClassNameLength > ScriptSerialSize) /// bad data malloc error prevention
+        NativeClassNameLength = 0;
     if (NativeClassNameLength > 0)
     {
         getline(stream, NativeClassName, '\0');

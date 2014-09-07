@@ -528,9 +528,9 @@ bool UPKUtils::LinkChild(UObjectReference OwnerRef, UObjectReference ChildRef)
     if (OwnerRef < 1 || OwnerRef >= (int)ExportTable.size())
         return false;
     UObject* Obj;
-    /// get first child
-    Obj = UObjectFactory::Create(GlobalType::UStruct);
-    if (Obj == nullptr)
+    /// deserialize owner object to get first child
+    Obj = UObjectFactory::Create(ExportTable[OwnerRef].Type);
+    if (Obj == nullptr || Obj->IsStructure() == false)
     {
         return false;
     }
@@ -580,6 +580,7 @@ bool UPKUtils::LinkChild(UObjectReference OwnerRef, UObjectReference ChildRef)
         NextRef = FieldObj->GetNextRef();
         LastRefOffset = FieldObj->GetNextRefOffset();
         delete Obj;
+
     }
     /// link new child to last child
     UPKFile.seekg(LastRefOffset);
