@@ -483,10 +483,10 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
     StatusBar1->PushStatusText("Applying mod file, please, wait...");
 
     long retVal = 0;
-    wxString executePatchUPKcommandLineString = "\"" + PatchUPKprogram.c_str() + "\"";
-    executePatchUPKcommandLineString += " \"" + TextCtrl2->GetValue().c_str() + "\"";
+    wxString executePatchUPKcommandLineString = PatchUPKprogram.c_str();
+    executePatchUPKcommandLineString += " " + TextCtrl2->GetValue().c_str();
     if (bSelectPath)
-        executePatchUPKcommandLineString += " \"" + TextCtrl1->GetValue().c_str() + "\\XComGame\\CookedPCConsole\\\"";
+        executePatchUPKcommandLineString += " " + TextCtrl1->GetValue().c_str() + "\\XComGame\\CookedPCConsole\\";
 
     wxExecuteEnv env;
     env.cwd = wxPathOnly(TextCtrl2->GetValue());
@@ -659,9 +659,9 @@ bool PatcherGUIFrame::DecompressUPK()
     for (unsigned i = 0; i < FilesToDecompress.GetCount(); ++i)
     {
         long retVal = 0;
-        wxString executeDecompressCommandLineString = "\"" + DecompressProgram + "\"";
+        wxString executeDecompressCommandLineString = DecompressProgram;
         executeDecompressCommandLineString += " -lzo -ps3";
-        executeDecompressCommandLineString += " -out=\"" + TextCtrl1->GetValue() + "\\XComGame\\CookedPCConsole\"";
+        executeDecompressCommandLineString += " -out=" + TextCtrl1->GetValue() + "\\XComGame\\CookedPCConsole";
         executeDecompressCommandLineString += " " + FilesToDecompress[i];
 
         wxExecuteEnv env;
