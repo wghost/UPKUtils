@@ -494,7 +494,8 @@ std::string UPKInfo::FormatName(uint32_t idx, bool verbose)
 {
     std::ostringstream ss;
     FNameEntry Entry = GetNameEntry(idx);
-    ss << FormatHEX((uint32_t)idx) << " (" << idx << "): "
+    ss << FormatHEX((uint32_t)idx) << " (" << idx << ") ( "
+       << FormatHEX((char*)&idx, sizeof(idx)) << "): "
        << Entry.Name << std::endl;
     if (verbose == true)
     {
@@ -507,8 +508,10 @@ std::string UPKInfo::FormatName(uint32_t idx, bool verbose)
 std::string UPKInfo::FormatImport(uint32_t idx, bool verbose)
 {
     std::ostringstream ss;
+    int32_t invIdx = -idx;
     FObjectImport Entry = GetImportEntry(idx);
-    ss << FormatHEX((uint32_t)(-idx)) << " (" << (-(int)idx) << "): "
+    ss << FormatHEX((uint32_t)(-idx)) << " (" << (-(int)idx) << ") ( "
+       << FormatHEX((char*)&invIdx, sizeof(invIdx)) << "): "
        << Entry.Type << "\'"
        << Entry.FullName << "\'" << std::endl;
     if (verbose == true)
@@ -525,7 +528,8 @@ std::string UPKInfo::FormatExport(uint32_t idx, bool verbose)
 {
     std::ostringstream ss;
     FObjectExport Entry = GetExportEntry(idx);
-    ss << FormatHEX((uint32_t)idx) << " (" << idx << "): "
+    ss << FormatHEX((uint32_t)idx) << " (" << idx << ") ( "
+       << FormatHEX((char*)&idx, sizeof(idx)) << "): "
        << Entry.Type << "\'"
        << Entry.FullName << "\'" << std::endl;
     if (verbose == true)
@@ -615,6 +619,18 @@ std::string FormatHEX(std::vector<char> DataChunk)
 {
     std::string ret;
     for (unsigned i = 0; i < DataChunk.size(); ++i)
+    {
+        char ch[255];
+        sprintf(ch, "%02X", (uint8_t)DataChunk[i]);
+        ret += std::string(ch) + " ";
+    }
+    return ret;
+}
+
+std::string FormatHEX(char* DataChunk, size_t size)
+{
+    std::string ret;
+    for (unsigned i = 0; i < size; ++i)
     {
         char ch[255];
         sprintf(ch, "%02X", (uint8_t)DataChunk[i]);

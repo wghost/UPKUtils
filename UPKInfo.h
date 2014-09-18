@@ -219,6 +219,7 @@ std::string FormatHEX(FGuid GUID);
 std::string FormatHEX(UNameIndex NameIndex);
 std::string FormatHEX(uint32_t L, uint32_t H);
 std::string FormatHEX(std::vector<char> DataChunk);
+std::string FormatHEX(char* DataChunk, size_t size);
 std::string FormatHEX(std::string DataString);
 /// format flags
 std::string FormatPackageFlags(uint32_t flags);

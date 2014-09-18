@@ -183,12 +183,12 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     }
     else if (Type == "Rotator")
     {
-        uint32_t P, Y, R;
+        int32_t P, Y, R;
         stream.read(reinterpret_cast<char*>(&P), sizeof(P));
         stream.read(reinterpret_cast<char*>(&Y), sizeof(Y));
         stream.read(reinterpret_cast<char*>(&R), sizeof(R));
         ss << "\tRotator (Pitch, Yaw, Roll) = ("
-           << FormatHEX(P) << ", " << FormatHEX(Y) << ", " << FormatHEX(R) << ") = ("
+           << FormatHEX((uint32_t)P) << ", " << FormatHEX((uint32_t)Y) << ", " << FormatHEX((uint32_t)R) << ") = ("
            << P << ", " << Y << ", " << R << ")" << std::endl;
     }
     else if (Type == "Vector2D")
@@ -228,6 +228,29 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
            << FormatHEX(R) << ", " << FormatHEX(G) << ", " << FormatHEX(B) << ", " << FormatHEX(A) << ") = ("
            << R << ", " << G << ", " << B << ", " << A << ")" << std::endl;
     }
+    else if (Type == "Box")
+    {
+        float X, Y, Z;
+        stream.read(reinterpret_cast<char*>(&X), sizeof(X));
+        stream.read(reinterpret_cast<char*>(&Y), sizeof(Y));
+        stream.read(reinterpret_cast<char*>(&Z), sizeof(Z));
+        ss << "\tVector Min (X, Y, Z) = ("
+           << FormatHEX(X) << ", " << FormatHEX(Y) << ", " << FormatHEX(Z) << ") = ("
+           << X << ", " << Y << ", " << Z << ")" << std::endl;
+        stream.read(reinterpret_cast<char*>(&X), sizeof(X));
+        stream.read(reinterpret_cast<char*>(&Y), sizeof(Y));
+        stream.read(reinterpret_cast<char*>(&Z), sizeof(Z));
+        ss << "\tVector Max (X, Y, Z) = ("
+           << FormatHEX(X) << ", " << FormatHEX(Y) << ", " << FormatHEX(Z) << ") = ("
+           << X << ", " << Y << ", " << Z << ")" << std::endl;
+        uint8_t byteVal = 0;
+        stream.read(reinterpret_cast<char*>(&byteVal), sizeof(byteVal));
+        ss << "\tIsValid: " << FormatHEX(byteVal) << " = ";
+        if (byteVal == 0)
+            ss << "false\n";
+        else
+            ss << "true\n";
+    }
     /// if it is big, it might be inner property list
     else if(TryUnsafe == true && PropertySize > 24)
     {
@@ -262,9 +285,12 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     {
         //stream.seekg(PropertySize, std::ios::cur);
         //ss << "\tUnknown property!\n";
-        std::vector<char> unk(PropertySize);
-        stream.read(unk.data(), unk.size());
-        ss << "\tUnknown property: " << FormatHEX(unk) << std::endl;
+        if (PropertySize <= info.GetExportEntry(OwnerRef).SerialSize)
+        {
+            std::vector<char> unk(PropertySize);
+            stream.read(unk.data(), unk.size());
+            ss << "\tUnknown property: " << FormatHEX(unk) << std::endl;
+        }
     }
     return ss.str();
 }
@@ -465,7 +491,7 @@ std::string UState::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&StateMapSize), sizeof(StateMapSize));
     ss << "\tStateMapSize = " << FormatHEX(StateMapSize) << " (" << StateMapSize << ")" << std::endl;
     StateMap.clear();
-    if (StateMapSize > ScriptSerialSize) /// bad data malloc error prevention
+    if (StateMapSize > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         StateMapSize = 0;
     for (unsigned i = 0; i < StateMapSize; ++i)
     {
@@ -499,7 +525,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumComponents), sizeof(NumComponents));
     ss << "\tNumComponents = " << FormatHEX(NumComponents) << " (" << NumComponents << ")" << std::endl;
     Components.clear();
-    if (NumComponents > ScriptSerialSize) /// bad data malloc error prevention
+    if (NumComponents > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NumComponents = 0;
     for (unsigned i = 0; i < NumComponents; ++i)
     {
@@ -513,7 +539,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumInterfaces), sizeof(NumInterfaces));
     ss << "\tNumInterfaces = " << FormatHEX(NumInterfaces) << " (" << NumInterfaces << ")" << std::endl;
     Interfaces.clear();
-    if (NumInterfaces > ScriptSerialSize) /// bad data malloc error prevention
+    if (NumInterfaces > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NumInterfaces = 0;
     for (unsigned i = 0; i < NumInterfaces; ++i)
     {
@@ -527,7 +553,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumDontSortCategories), sizeof(NumDontSortCategories));
     ss << "\tNumDontSortCategories = " << FormatHEX(NumDontSortCategories) << " (" << NumDontSortCategories << ")" << std::endl;
     DontSortCategories.clear();
-    if (NumDontSortCategories > ScriptSerialSize) /// bad data malloc error prevention
+    if (NumDontSortCategories > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NumDontSortCategories = 0;
     for (unsigned i = 0; i < NumDontSortCategories; ++i)
     {
@@ -540,7 +566,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumHideCategories), sizeof(NumHideCategories));
     ss << "\tNumHideCategories = " << FormatHEX(NumHideCategories) << " (" << NumHideCategories << ")" << std::endl;
     HideCategories.clear();
-    if (NumHideCategories > ScriptSerialSize) /// bad data malloc error prevention
+    if (NumHideCategories > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NumHideCategories = 0;
     for (unsigned i = 0; i < NumHideCategories; ++i)
     {
@@ -553,7 +579,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumAutoExpandCategories), sizeof(NumAutoExpandCategories));
     ss << "\tNumAutoExpandCategories = " << FormatHEX(NumAutoExpandCategories) << " (" << NumAutoExpandCategories << ")" << std::endl;
     AutoExpandCategories.clear();
-    if (NumAutoExpandCategories > ScriptSerialSize) /// bad data malloc error prevention
+    if (NumAutoExpandCategories > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NumAutoExpandCategories = 0;
     for (unsigned i = 0; i < NumAutoExpandCategories; ++i)
     {
@@ -566,7 +592,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumAutoCollapseCategories), sizeof(NumAutoCollapseCategories));
     ss << "\tNumAutoCollapseCategories = " << FormatHEX(NumAutoCollapseCategories) << " (" << NumAutoCollapseCategories << ")" << std::endl;
     AutoCollapseCategories.clear();
-    if (NumAutoCollapseCategories > ScriptSerialSize) /// bad data malloc error prevention
+    if (NumAutoCollapseCategories > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NumAutoCollapseCategories = 0;
     for (unsigned i = 0; i < NumAutoCollapseCategories; ++i)
     {
@@ -581,7 +607,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&NumClassGroups), sizeof(NumClassGroups));
     ss << "\tNumClassGroups = " << FormatHEX(NumClassGroups) << " (" << NumClassGroups << ")" << std::endl;
     ClassGroups.clear();
-    if (NumClassGroups > ScriptSerialSize) /// bad data malloc error prevention
+    if (NumClassGroups > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NumClassGroups = 0;
     for (unsigned i = 0; i < NumClassGroups; ++i)
     {
@@ -593,7 +619,7 @@ std::string UClass::Deserialize(std::istream& stream, UPKInfo& info)
     }
     stream.read(reinterpret_cast<char*>(&NativeClassNameLength), sizeof(NativeClassNameLength));
     ss << "\tNativeClassNameLength = " << FormatHEX(NativeClassNameLength) << std::endl;
-    if (NativeClassNameLength > ScriptSerialSize) /// bad data malloc error prevention
+    if (NativeClassNameLength > info.GetExportEntry(ThisRef).SerialSize) /// bad data malloc error prevention
         NativeClassNameLength = 0;
     if (NativeClassNameLength > 0)
     {
