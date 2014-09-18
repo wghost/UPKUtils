@@ -14,10 +14,14 @@
 #include <wx/filedlg.h>
 #include <wx/dirdlg.h>
 #include <wx/filename.h>
+#include <wx/mimetype.h>
+#include <wx/textdlg.h>
 #include "SettingsDialog.h"
+#include "ShowDebugLogDialog.h"
 #include "ViewLog.h"
 
 #include <fstream>
+#include <sstream>
 #include <functional>
 
 //(*InternalHeaders(PatcherGUIFrame)
@@ -37,11 +41,22 @@ const long PatcherGUIFrame::ID_RICHTEXTCTRL1 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON1 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON7 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON2 = wxNewId();
-const long PatcherGUIFrame::ID_BUTTON3 = wxNewId();
 const long PatcherGUIFrame::ID_BUTTON4 = wxNewId();
-const long PatcherGUIFrame::ID_BUTTON5 = wxNewId();
-const long PatcherGUIFrame::ID_TEXTCTRL3 = wxNewId();
 const long PatcherGUIFrame::ID_PANEL1 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM9 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM4 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM5 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM6 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM2 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM3 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM13 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM10 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM11 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM1 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM12 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM7 = wxNewId();
+const long PatcherGUIFrame::ID_MENUITEM8 = wxNewId();
+const long PatcherGUIFrame::ID_STATUSBAR1 = wxNewId();
 //*)
 
 BEGIN_EVENT_TABLE(PatcherGUIFrame,wxFrame)
@@ -96,25 +111,58 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     Button2 = new wxButton(Panel1, ID_BUTTON2, _("Apply"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON2"));
     Button2->SetToolTip(_("Apply mod"));
     BoxSizer3->Add(Button2, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
-    Button3 = new wxButton(Panel1, ID_BUTTON3, _("XSHAPE"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON3"));
-    Button3->SetToolTip(_("Update hashes with XSHAPE (XCOM:EU only!)"));
-    BoxSizer3->Add(Button3, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     Button4 = new wxButton(Panel1, ID_BUTTON4, _("Show log"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON4"));
     Button4->SetToolTip(_("View install log"));
     BoxSizer3->Add(Button4, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
-    Button5 = new wxButton(Panel1, ID_BUTTON5, _("Settings"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_BUTTON5"));
-    Button5->SetToolTip(_("Change program settings"));
-    BoxSizer3->Add(Button5, 1, wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     FlexGridSizer2->Add(BoxSizer3, 1, wxALL|wxALIGN_TOP|wxALIGN_CENTER_HORIZONTAL, 5);
-    TextCtrl3 = new wxTextCtrl(Panel1, ID_TEXTCTRL3, _("PatchUPK output stream"), wxDefaultPosition, wxSize(575,88), wxTE_MULTILINE|wxTE_READONLY, wxDefaultValidator, _T("ID_TEXTCTRL3"));
-    TextCtrl3->SetToolTip(_("Output stream of console utilities. Copy this to your bugreport if something goes wrong."));
-    FlexGridSizer2->Add(TextCtrl3, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
     BoxSizer2->Add(FlexGridSizer2, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 0);
     Panel1->SetSizer(BoxSizer2);
     BoxSizer2->Fit(Panel1);
     BoxSizer2->SetSizeHints(Panel1);
     BoxSizer1->Add(Panel1, 1, wxALL|wxEXPAND|wxFIXED_MINSIZE|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 0);
     SetSizer(BoxSizer1);
+    MenuBar1 = new wxMenuBar();
+    Menu5 = new wxMenu();
+    MenuItem6 = new wxMenuItem(Menu5, ID_MENUITEM9, _("Load\tCTRL+L"), _("Load mod file"), wxITEM_NORMAL);
+    Menu5->Append(MenuItem6);
+    MenuItem1 = new wxMenuItem(Menu5, ID_MENUITEM4, _("Save\tCTRL+S"), _("Save current mod file"), wxITEM_NORMAL);
+    Menu5->Append(MenuItem1);
+    MenuItem2 = new wxMenuItem(Menu5, ID_MENUITEM5, _("Save as..."), _("Save current mod file as..."), wxITEM_NORMAL);
+    Menu5->Append(MenuItem2);
+    MenuItem3 = new wxMenuItem(Menu5, ID_MENUITEM6, _("Quit\tCTRL+X"), _("Quit program"), wxITEM_NORMAL);
+    Menu5->Append(MenuItem3);
+    MenuBar1->Append(Menu5, _("&File"));
+    Menu4 = new wxMenu();
+    Menu2 = new wxMenuItem(Menu4, ID_MENUITEM2, _("Disable hash check"), _("Patch game executable to disable hash check"), wxITEM_NORMAL);
+    Menu4->Append(Menu2);
+    Menu3 = new wxMenuItem(Menu4, ID_MENUITEM3, _("Enable ini loading"), _("Patch game executable to enable ini loading"), wxITEM_NORMAL);
+    Menu4->Append(Menu3);
+    MenuItem10 = new wxMenuItem(Menu4, ID_MENUITEM13, _("Disable phoning home"), _("Patch game executable to disable ini re-downloading"), wxITEM_NORMAL);
+    Menu4->Append(MenuItem10);
+    MenuItem7 = new wxMenuItem(Menu4, ID_MENUITEM10, _("Open config folder"), _("Open default config folder in explorer"), wxITEM_NORMAL);
+    Menu4->Append(MenuItem7);
+    MenuItem8 = new wxMenuItem(Menu4, ID_MENUITEM11, _("Show debug log"), _("Show program debug messages"), wxITEM_NORMAL);
+    Menu4->Append(MenuItem8);
+    MenuBar1->Append(Menu4, _("&Tools"));
+    Menu7 = new wxMenu();
+    Menu1 = new wxMenuItem(Menu7, ID_MENUITEM1, _("Settings"), _("Change program settings"), wxITEM_NORMAL);
+    Menu7->Append(Menu1);
+    MenuItem9 = new wxMenuItem(Menu7, ID_MENUITEM12, _("Disable hash..."), _("Disable specific package hash check"), wxITEM_NORMAL);
+    Menu7->Append(MenuItem9);
+    MenuBar1->Append(Menu7, _("&Advanced"));
+    Menu6 = new wxMenu();
+    MenuItem4 = new wxMenuItem(Menu6, ID_MENUITEM7, _("About"), _("Show about info"), wxITEM_NORMAL);
+    Menu6->Append(MenuItem4);
+    MenuItem5 = new wxMenuItem(Menu6, ID_MENUITEM8, _("Readme\tF1"), _("Open readme file"), wxITEM_NORMAL);
+    Menu6->Append(MenuItem5);
+    MenuBar1->Append(Menu6, _("&Help"));
+    SetMenuBar(MenuBar1);
+    StatusBar1 = new wxStatusBar(this, ID_STATUSBAR1, 0, _T("ID_STATUSBAR1"));
+    int __wxStatusBarWidths_1[1] = { -10 };
+    int __wxStatusBarStyles_1[1] = { wxSB_FLAT };
+    StatusBar1->SetFieldsCount(1,__wxStatusBarWidths_1);
+    StatusBar1->SetStatusStyles(1,__wxStatusBarStyles_1);
+    SetStatusBar(StatusBar1);
     BoxSizer1->Fit(this);
     BoxSizer1->SetSizeHints(this);
 
@@ -123,9 +171,20 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
     Connect(ID_BUTTON1,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFile);
     Connect(ID_BUTTON7,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFileAs);
     Connect(ID_BUTTON2,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnInstallMod);
-    Connect(ID_BUTTON3,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnUpdateHashes);
     Connect(ID_BUTTON4,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnShowLog);
-    Connect(ID_BUTTON5,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&PatcherGUIFrame::OnChangeSettings);
+    Connect(ID_MENUITEM9,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnSelectModFile);
+    Connect(ID_MENUITEM4,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFile);
+    Connect(ID_MENUITEM5,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnSaveModFileAs);
+    Connect(ID_MENUITEM6,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnQuit);
+    Connect(ID_MENUITEM2,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnDisableHashCheck);
+    Connect(ID_MENUITEM3,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnEnableINI);
+    Connect(ID_MENUITEM13,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnDisablePhoneHome);
+    Connect(ID_MENUITEM10,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnOpenConfigFolder);
+    Connect(ID_MENUITEM11,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnShowDebugLog);
+    Connect(ID_MENUITEM1,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnChangeSettings);
+    Connect(ID_MENUITEM12,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::DisableSpecificPackageHashCheck);
+    Connect(ID_MENUITEM7,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnAbout);
+    Connect(ID_MENUITEM8,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&PatcherGUIFrame::OnShowReadme);
     Connect(wxID_ANY,wxEVT_CLOSE_WINDOW,(wxObjectEventFunction)&PatcherGUIFrame::OnClose);
     //*)
     bSelectPath = false;
@@ -135,9 +194,9 @@ PatcherGUIFrame::PatcherGUIFrame(wxWindow* parent,wxWindowID id)
         BackupPathString = wxGetCwd() + "\\Backup";
         PatchUPKprogram = wxGetCwd() + "\\Binaries\\PatchUPK.exe";
         DecompressProgram = wxGetCwd() + "\\Binaries\\Decompress.exe";
-        XshapeProgram = wxGetCwd() + "\\Binaries\\XSHAPE.jar";
     }
     curBackupPathString = "";
+    ProgLog = "";
 }
 
 PatcherGUIFrame::~PatcherGUIFrame()
@@ -163,6 +222,11 @@ void PatcherGUIFrame::OnClose(wxCloseEvent& event)
     event.Skip();
 }
 
+void PatcherGUIFrame::OnQuit(wxCommandEvent& event)
+{
+    Close();
+}
+
 bool PatcherGUIFrame::LoadCFG()
 {
     std::ifstream cfg("PatcherGUI.cfg");
@@ -182,8 +246,6 @@ bool PatcherGUIFrame::LoadCFG()
         PatchUPKprogram = str;
         getline(cfg, str);
         DecompressProgram = str;
-        getline(cfg, str);
-        XshapeProgram = str;
         return true;
     }
     return false;
@@ -206,9 +268,6 @@ bool PatcherGUIFrame::SaveCFG()
         if (!wxFileExists(DecompressProgram))
             DecompressProgram = wxGetCwd() + "\\Binaries\\Decompress.exe";
         cfg << DecompressProgram << std::endl;
-        if (!wxFileExists(XshapeProgram))
-            XshapeProgram = wxGetCwd() + "\\Binaries\\XSHAPE.jar";
-        cfg << XshapeProgram << std::endl;
         return true;
     }
     return false;
@@ -218,9 +277,12 @@ void PatcherGUIFrame::OnSaveModFile(wxCommandEvent& event)
 {
     if (RichTextCtrl1->GetFilename() != wxEmptyString)
         RichTextCtrl1->SaveFile(RichTextCtrl1->GetFilename(), wxRICHTEXT_TYPE_TEXT);
+    else
+        SaveModFileAs();
+    StatusBar1->PushStatusText("Mod file saved");
 }
 
-void PatcherGUIFrame::OnSaveModFileAs(wxCommandEvent& event)
+void PatcherGUIFrame::SaveModFileAs()
 {
     wxString defDir = "";
 
@@ -240,6 +302,12 @@ void PatcherGUIFrame::OnSaveModFileAs(wxCommandEvent& event)
     bSelectFile = true;
 }
 
+void PatcherGUIFrame::OnSaveModFileAs(wxCommandEvent& event)
+{
+    SaveModFileAs();
+    StatusBar1->PushStatusText("Mod file saved");
+}
+
 void PatcherGUIFrame::OnSelectDirectory(wxCommandEvent& event)
 {
     wxString defDir = TextCtrl1->GetValue();
@@ -255,6 +323,8 @@ void PatcherGUIFrame::OnSelectDirectory(wxCommandEvent& event)
     TextCtrl1->SetValue(dirDialog.GetPath());
     bSelectPath = true;
     LoadLogs();
+
+    StatusBar1->PushStatusText("Game directory changed");
 }
 
 void PatcherGUIFrame::LoadLogs()
@@ -323,6 +393,7 @@ void PatcherGUIFrame::OnSelectModFile(wxCommandEvent& event)
         return;
 
     OpenModFile(openFileDialog.GetPath());
+    StatusBar1->PushStatusText("Mod file loaded");
 }
 
 void PatcherGUIFrame::OpenModFile(wxString FilePath)
@@ -383,13 +454,10 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
     {
         int eqPos = str.find_first_of('=', pos);
         wxString upkFile = str.substr(eqPos + 1, str.find_first_of('.', pos) + 3 - eqPos);
-        //upkFile.Trim();
         upkFile = upkFile.substr(upkFile.find_first_not_of(" "));
         upkFile = upkFile.substr(0, upkFile.find_last_not_of(" ") + 1);
         FilesToBackup.Add(upkFile);
         wxString sizeFile = TextCtrl1->GetValue() + "\\XComGame\\CookedPCConsole\\" + upkFile + ".uncompressed_size";
-        //TextCtrl3->AppendText(sizeFile + "\n");
-        //if (wxFileExists(sizeFile))
         if (NeedDecompression(TextCtrl1->GetValue() + "\\XComGame\\CookedPCConsole\\" + upkFile))
         {
             FilesToDecompress.Add(upkFile);
@@ -403,7 +471,7 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
         pos = str.find("UPK_FILE");
     }
 
-    TextCtrl3->SetValue("");
+    ProgLog = "";
 
     if (!MakeBackups())
         return;
@@ -412,11 +480,13 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
     if (!RemoveSizeFiles())
         return;
 
+    StatusBar1->PushStatusText("Applying mod file, please, wait...");
+
     long retVal = 0;
     wxString executePatchUPKcommandLineString = "\"" + PatchUPKprogram.c_str() + "\"";
     executePatchUPKcommandLineString += " \"" + TextCtrl2->GetValue().c_str() + "\"";
     if (bSelectPath)
-        executePatchUPKcommandLineString += " \"" + TextCtrl1->GetValue().c_str() + "\\XComGame\\CookedPCConsole\"";
+        executePatchUPKcommandLineString += " \"" + TextCtrl1->GetValue().c_str() + "\\XComGame\\CookedPCConsole\\\"";
 
     wxExecuteEnv env;
     env.cwd = wxPathOnly(TextCtrl2->GetValue());
@@ -426,12 +496,12 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
 
     retVal = wxExecute(executePatchUPKcommandLineString, PatchUPKoutput, PatchUPKerrors, wxEXEC_SYNC, &env);
 
-    TextCtrl3->AppendText("Executing external PatchUPK program:\n" + executePatchUPKcommandLineString + "\n\n");
+    ProgLog << "Executing external PatchUPK program:\n" << executePatchUPKcommandLineString << "\n\n";
 
     for (unsigned i = 0; i < PatchUPKoutput.GetCount(); ++i)
-        TextCtrl3->AppendText(PatchUPKoutput[i] + "\n");
+        ProgLog << PatchUPKoutput[i] << "\n";
     for (unsigned i = 0; i < PatchUPKerrors.GetCount(); ++i)
-        TextCtrl3->AppendText(PatchUPKerrors[i] + "\n");
+        ProgLog << PatchUPKerrors[i] << "\n";
 
     if (retVal != 0)
     {
@@ -439,10 +509,12 @@ void PatcherGUIFrame::OnInstallMod(wxCommandEvent& event)
         RestoreFromBackup();
         return;
     }
-    else
-        wxMessageBox(_("Patched successfully!"), _("Success"), wxICON_INFORMATION | wxOK, this);
 
-    TextCtrl3->AppendText("\nMod applied successfully\n\n");
+    ProgLog << "\nMod applied successfully\n\n";
+
+    StatusBar1->PushStatusText("Mod file successfully applied");
+
+    wxMessageBox(_("Patched successfully!"), _("Success"), wxICON_INFORMATION | wxOK, this);
 
     if (TextCtrl2->GetValue().Find(".uninstall") != wxNOT_FOUND)
     {
@@ -506,7 +578,7 @@ bool PatcherGUIFrame::RestoreFromBackup()
     if (curBackupPathString == wxEmptyString || !wxDirExists(curBackupPathString))
         return false;
 
-    TextCtrl3->AppendText("Restoring from backup in " + curBackupPathString + "\n");
+    ProgLog << "Restoring from backup in " << curBackupPathString << "\n";
 
     for (unsigned i = 0; i < FilesToBackup.GetCount(); ++i)
     {
@@ -517,10 +589,12 @@ bool PatcherGUIFrame::RestoreFromBackup()
             wxMessageBox(_("Can't restore from backup!"), _("Error"), wxICON_ERROR | wxOK, this);
             return false;
         }
-        TextCtrl3->AppendText(FilesToBackup[i] + " restored from backup dir\n");
+        ProgLog << FilesToBackup[i] << " restored from backup dir\n";
     }
 
-    TextCtrl3->AppendText("Restoring from backup completed successfully\n\n");
+    ProgLog << "Restoring from backup completed successfully\n\n";
+
+    StatusBar1->PushStatusText("Backup files restored");
 
     return true;
 }
@@ -549,7 +623,7 @@ bool PatcherGUIFrame::MakeBackups()
             return false;
         }
 
-    TextCtrl3->AppendText("Writing backups to " + curBackupPathString + "\n");
+    ProgLog << "Writing backups to " << curBackupPathString << "\n";
 
     for (unsigned i = 0; i < FilesToBackup.GetCount(); ++i)
     {
@@ -562,11 +636,11 @@ bool PatcherGUIFrame::MakeBackups()
                 wxMessageBox(_("Can't make backups!"), _("Error"), wxICON_ERROR | wxOK, this);
                 return false;
             }
-            TextCtrl3->AppendText(FilesToBackup[i] + " saved to backup dir\n");
+            ProgLog << FilesToBackup[i] << " saved to backup dir\n";
         }
     }
 
-    TextCtrl3->AppendText("Backup completed successfully\n\n");
+    ProgLog << "Backup completed successfully\n\n";
 
     return true;
 }
@@ -598,12 +672,12 @@ bool PatcherGUIFrame::DecompressUPK()
 
         retVal = wxExecute(executeDecompressCommandLineString, DecompressOutput, DecompressErrors, wxEXEC_SYNC, &env);
 
-        TextCtrl3->AppendText("Executing external decompress program:\n" + executeDecompressCommandLineString + "\n\n");
+        ProgLog << "Executing external decompress program:\n" << executeDecompressCommandLineString << "\n\n";
 
         for (unsigned k = 0; k < DecompressOutput.GetCount(); ++k)
-            TextCtrl3->AppendText(DecompressOutput[k] + "\n");
+            ProgLog << DecompressOutput[k] << "\n";
         for (unsigned k = 0; k < DecompressErrors.GetCount(); ++k)
-            TextCtrl3->AppendText(DecompressErrors[k] + "\n");
+            ProgLog << DecompressErrors[k] << "\n";
 
         if (retVal != 0)
         {
@@ -612,7 +686,7 @@ bool PatcherGUIFrame::DecompressUPK()
         }
     }
 
-    TextCtrl3->AppendText("Decompression completed successfully\n\n");
+    ProgLog << "Decompression completed successfully\n\n";
 
     return true;
 }
@@ -622,7 +696,7 @@ bool PatcherGUIFrame::RemoveSizeFiles()
     if (FilesToRemove.GetCount() == 0)
         return true;
 
-    TextCtrl3->AppendText("Deleting size files\n");
+    ProgLog << "Deleting size files\n";
 
     for (unsigned i = 0; i < FilesToRemove.GetCount(); ++i)
     {
@@ -637,10 +711,10 @@ bool PatcherGUIFrame::RemoveSizeFiles()
             wxMessageBox(_("Can't delete ") + removePath, _("Error"), wxICON_ERROR | wxOK, this);
             return false;
         }
-        TextCtrl3->AppendText(FilesToRemove[i] + " deleted\n");
+        ProgLog << FilesToRemove[i] << " deleted\n";
     }
 
-    TextCtrl3->AppendText("Files deleted successfully\n\n");
+    ProgLog << "Files deleted successfully\n\n";
 
     return true;
 }
@@ -652,7 +726,6 @@ void PatcherGUIFrame::OnChangeSettings(wxCommandEvent& event)
     dlg.TextCtrl2->SetValue(BackupPathString);
     dlg.TextCtrl3->SetValue(PatchUPKprogram);
     dlg.TextCtrl1->SetValue(DecompressProgram);
-    dlg.TextCtrl4->SetValue(XshapeProgram);
 
     if (dlg.ShowModal() == wxID_CANCEL)
         return;
@@ -661,7 +734,6 @@ void PatcherGUIFrame::OnChangeSettings(wxCommandEvent& event)
     BackupPathString = dlg.TextCtrl2->GetValue();
     PatchUPKprogram = dlg.TextCtrl3->GetValue();
     DecompressProgram = dlg.TextCtrl1->GetValue();
-    XshapeProgram = dlg.TextCtrl4->GetValue();
     //SaveCFG();
 }
 
@@ -684,50 +756,311 @@ void PatcherGUIFrame::OnShowLog(wxCommandEvent& event)
     OpenModFile(FileToOpen);
 }
 
-void PatcherGUIFrame::OnUpdateHashes(wxCommandEvent& event)
+void PatcherGUIFrame::OnDisableHashCheck(wxCommandEvent& event)
 {
-    if (!wxFileExists(XshapeProgram))
+    wxString exePath = TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComGame.exe";
+
+    if (!wxFileExists(exePath))
     {
-        wxMessageBox(_("Can't find XSHAPE in ") + XshapeProgram, _("Error"), wxICON_ERROR | wxOK, this);
+        if (wxFileExists(TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComEW.exe"))
+        {
+            wxMessageBox(_("XCOM:EW already has hash check removed by developers!"), _("Information"), wxICON_INFORMATION | wxOK, this);
+            return;
+        }
+        wxMessageBox(_("Can't find game executable!"), _("Error"), wxICON_ERROR | wxOK, this);
         return;
     }
 
-    long retVal = 0;
-    wxString executeXshapeCommandLineString = "java -jar \"" + XshapeProgram + "\" -v 0";
-    wxString  XshapeCFG = TextCtrl1->GetValue() + "\\XSHAPE.config";
-
-    if (!wxFileExists(XshapeCFG))
+    if (!wxFileExists(exePath + ".bak"))
     {
-        wxString DefCFG;
-        wxFileName::SplitPath(XshapeProgram, nullptr, &DefCFG, nullptr, nullptr);
-        DefCFG += "\\XSHAPE.config";
-        if (!wxCopyFile(DefCFG, XshapeCFG))
+        if (!wxCopyFile(exePath, exePath + ".bak"))
         {
-            wxMessageBox(_("Error copying XSHAPE config to ") + XshapeCFG, _("Error"), wxICON_ERROR | wxOK, this);
+            wxMessageBox(_("Failed to write backup!"), _("Error"), wxICON_ERROR | wxOK, this);
             return;
         }
     }
 
-    wxExecuteEnv env;
-    env.cwd = TextCtrl1->GetValue();
+    std::ifstream exeFile(exePath.c_str(), std::ios::binary);
+    std::stringstream ss;
+    ss << exeFile.rdbuf();
 
-    XshapeOutput.Clear();
-    XshapeErrors.Clear();
+    size_t pos = std::string::npos;
 
-    retVal = wxExecute(executeXshapeCommandLineString, XshapeOutput, XshapeErrors, wxEXEC_SYNC, &env);
-
-    TextCtrl3->AppendText("Executing external XSHAPE program:\n" + executeXshapeCommandLineString + "\n\n");
-
-    for (unsigned k = 0; k < XshapeOutput.GetCount(); ++k)
-        TextCtrl3->AppendText(XshapeOutput[k] + "\n");
-    for (unsigned k = 0; k < XshapeErrors.GetCount(); ++k)
-        TextCtrl3->AppendText(XshapeErrors[k] + "\n");
-
-    if (retVal != 0)
+    pos = ss.str().find("core.upk");
+    if (pos != std::string::npos)
     {
-        wxMessageBox(_("Error updating hashes!"), _("Error"), wxICON_ERROR | wxOK, this);
+        ss.seekp(pos);
+        ss.put('y');
+    }
+    pos = ss.str().find("engine.upk");
+    if (pos != std::string::npos)
+    {
+        ss.seekp(pos);
+        ss.put('y');
+    }
+    pos = ss.str().find("xcomgame.upk");
+    if (pos != std::string::npos)
+    {
+        ss.seekp(pos);
+        ss.put('y');
+    }
+    pos = ss.str().find("xcomstrategygame.upk");
+    if (pos != std::string::npos)
+    {
+        ss.seekp(pos);
+        ss.put('y');
+    }
+
+    exeFile.close();
+
+    std::ofstream exeFleOut(exePath.c_str(), std::ios::binary);
+    exeFleOut << ss.str();
+
+    StatusBar1->PushStatusText("Hash check successfully disabled");
+
+    wxMessageBox(_("Has check disabled successfully!"), _("Success"), wxICON_INFORMATION | wxOK, this);
+}
+
+void PatcherGUIFrame::OnEnableINI(wxCommandEvent& event)
+{
+    wxString exePath = TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComGame.exe";
+
+    if (!wxFileExists(exePath))
+        exePath = TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComEW.exe";
+
+    if (!wxFileExists(exePath))
+    {
+        wxMessageBox(_("Can't find game executable!"), _("Error"), wxICON_ERROR | wxOK, this);
         return;
     }
 
-    TextCtrl3->AppendText("Hashes updated successfully\n\n");
+    if (!wxFileExists(exePath + ".bak"))
+    {
+        if (!wxCopyFile(exePath, exePath + ".bak"))
+        {
+            wxMessageBox(_("Failed to write backup!"), _("Error"), wxICON_ERROR | wxOK, this);
+            return;
+        }
+    }
+
+    std::ifstream exeFile(exePath.c_str(), std::ios::binary);
+    std::stringstream ss;
+    ss << exeFile.rdbuf();
+
+    size_t pos = std::string::npos;
+
+    char chdgc[] = {0x58 , 0x00 , 0x43 , 0x00 , 0x6F , 0x00 , 0x6D , 0x00 , 0x47 , 0x00 , 0x61 , 0x00 , 0x6D , 0x00 , 0x65 , 0x00 , 0x5C , 0x00 , 0x43 , 0x00 , 0x6F , 0x00 , 0x6E , 0x00 , 0x66 , 0x00 , 0x69 , 0x00 , 0x67 , 0x00 , 0x5C , 0x00 , 0x44 , 0x00 , 0x65 , 0x00 , 0x66 , 0x00 , 0x61 , 0x00 , 0x75 , 0x00 , 0x6C , 0x00 , 0x74 , 0x00 , 0x47 , 0x00 , 0x61 , 0x00 , 0x6D , 0x00 , 0x65 , 0x00 , 0x43 , 0x00 , 0x6F , 0x00 , 0x72 , 0x00 , 0x65 , 0x00 , 0x2E , 0x00 , 0x69 , 0x00 , 0x6E , 0x00 , 0x69 , 0x00};
+    char chdl[]  = {0x58 , 0x00 , 0x43 , 0x00 , 0x6F , 0x00 , 0x6D , 0x00 , 0x47 , 0x00 , 0x61 , 0x00 , 0x6D , 0x00 , 0x65 , 0x00 , 0x5C , 0x00 , 0x43 , 0x00 , 0x6F , 0x00 , 0x6E , 0x00 , 0x66 , 0x00 , 0x69 , 0x00 , 0x67 , 0x00 , 0x5C , 0x00 , 0x44 , 0x00 , 0x65 , 0x00 , 0x66 , 0x00 , 0x61 , 0x00 , 0x75 , 0x00 , 0x6C , 0x00 , 0x74 , 0x00 , 0x4C , 0x00 , 0x6F , 0x00 , 0x61 , 0x00 , 0x64 , 0x00 , 0x6F , 0x00 , 0x75 , 0x00 , 0x74 , 0x00 , 0x73 , 0x00 , 0x2E , 0x00 , 0x69 , 0x00 , 0x6E , 0x00 , 0x69 , 0x00};
+
+    std::string dgc(chdgc, 70), dl(chdl, 70);
+
+    pos = ss.str().find(dgc);
+    if (pos != std::string::npos)
+    {
+        ss.seekp(pos);
+        ss.put('Y');
+        pos = ss.str().find(dgc, pos + 70);
+        if (pos != std::string::npos)
+        {
+            ss.seekp(pos);
+            ss.put('Y');
+        }
+    }
+    pos = ss.str().find(dl);
+    if (pos != std::string::npos)
+    {
+        ss.seekp(pos);
+        ss.put('Y');
+        pos = ss.str().find(dl, pos + 70);
+        if (pos != std::string::npos)
+        {
+            ss.seekp(pos);
+            ss.put('Y');
+        }
+    }
+
+    exeFile.close();
+
+    std::ofstream exeFleOut(exePath.c_str(), std::ios::binary);
+    exeFleOut << ss.str();
+
+    StatusBar1->PushStatusText("INI loading successfully enabled");
+
+    wxMessageBox(_("INI loading enabled successfully!"), _("Success"), wxICON_INFORMATION | wxOK, this);
+}
+
+void PatcherGUIFrame::OnAbout(wxCommandEvent& event)
+{
+    wxString msg;
+    msg << "PatcherGUI — a tool to install and maintain modifications for XCOM:EU and EW.\n\n"
+        << "Current version: 5.2\n\n"
+        << "Author: wghost81 aka Wasteland Ghost\n\n"
+        << "All trademarks, mentioned herein, are properties of their respective owners.";
+    wxMessageBox(msg, _("About PatcherGUI"), wxICON_INFORMATION | wxOK, this);
+}
+
+void PatcherGUIFrame::OnShowReadme(wxCommandEvent& event)
+{
+    wxString pathToReadmeFile = wxGetCwd() + "\\PatcherGUIReadme.txt";
+
+    if (!wxFileExists(pathToReadmeFile))
+    {
+        wxMessageBox(_("Can't find readme file!"), _("Error"), wxICON_ERROR | wxOK, this);
+        return;
+    }
+
+    wxFileType *ft = wxTheMimeTypesManager->GetFileTypeFromExtension("txt");
+    wxString cmd;
+    if (ft)
+    {
+        ft->GetOpenCommand(&cmd, wxFileType::MessageParameters(pathToReadmeFile));
+        wxExecute(cmd, wxEXEC_ASYNC);
+        delete ft;
+    }
+}
+
+void PatcherGUIFrame::OnOpenConfigFolder(wxCommandEvent& event)
+{
+    wxString configPath = TextCtrl1->GetValue() + "\\XComGame\\Config";
+
+    if (!wxDirExists(configPath))
+    {
+        wxMessageBox(_("Can't find config folder!"), _("Error"), wxICON_ERROR | wxOK, this);
+        return;
+    }
+
+    wxLaunchDefaultBrowser(wxString("file:") + configPath, wxBROWSER_NEW_WINDOW);
+}
+
+void PatcherGUIFrame::OnShowDebugLog(wxCommandEvent& event)
+{
+    ShowDebugLogDialog dlg(this);
+
+    dlg.TextCtrl1->SetValue(ProgLog);
+
+    dlg.ShowModal();
+}
+
+void PatcherGUIFrame::DisableSpecificPackageHashCheck(wxCommandEvent& event)
+{
+    wxString exePath = TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComGame.exe";
+
+    if (!wxFileExists(exePath))
+    {
+        if (wxFileExists(TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComEW.exe"))
+        {
+            wxMessageBox(_("XCOM:EW already has hash check removed by developers!"), _("Information"), wxICON_INFORMATION | wxOK, this);
+            return;
+        }
+        wxMessageBox(_("Can't find game executable!"), _("Error"), wxICON_ERROR | wxOK, this);
+        return;
+    }
+
+    if (!wxFileExists(exePath + ".bak"))
+    {
+        if (!wxCopyFile(exePath, exePath + ".bak"))
+        {
+            wxMessageBox(_("Failed to write backup!"), _("Error"), wxICON_ERROR | wxOK, this);
+            return;
+        }
+    }
+
+    wxTextEntryDialog dlg(this, "Input package name", "Disable hash check");
+
+    if (dlg.ShowModal() != wxID_OK)
+    {
+        return;
+    }
+
+    wxString nameToFind = dlg.GetValue().Lower();
+
+    if (nameToFind.Find(".upk") == wxNOT_FOUND)
+    {
+        wxMessageBox(nameToFind + " is not a package!", _("Error"), wxICON_ERROR | wxOK, this);
+        return;
+    }
+
+    std::ifstream exeFile(exePath.c_str(), std::ios::binary);
+    std::stringstream ss;
+    ss << exeFile.rdbuf();
+
+    size_t pos = std::string::npos;
+
+    pos = ss.str().find(nameToFind);
+    if (pos != std::string::npos)
+    {
+        ss.seekp(pos);
+        ss.put('y');
+    }
+    else
+    {
+        nameToFind[0] = 'y';
+        pos = ss.str().find(nameToFind);
+        if (pos != std::string::npos)
+        {
+            wxMessageBox(_("Hash check for this package already disabled!"), _("Error"), wxICON_ERROR | wxOK, this);
+        }
+        else
+        {
+            wxMessageBox(_("Can't find specified package reference!"), _("Error"), wxICON_ERROR | wxOK, this);
+        }
+        return;
+    }
+
+    exeFile.close();
+
+    std::ofstream exeFleOut(exePath.c_str(), std::ios::binary);
+    exeFleOut << ss.str();
+
+    StatusBar1->PushStatusText("Hash check successfully disabled");
+
+    wxMessageBox(_("Has check disabled successfully!"), _("Success"), wxICON_INFORMATION | wxOK, this);
+}
+
+void PatcherGUIFrame::OnDisablePhoneHome(wxCommandEvent& event)
+{
+    wxString exePath = TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComGame.exe";
+
+    if (!wxFileExists(exePath))
+        exePath = TextCtrl1->GetValue() + "\\Binaries\\Win32\\XComEW.exe";
+
+    if (!wxFileExists(exePath))
+    {
+        wxMessageBox(_("Can't find game executable!"), _("Error"), wxICON_ERROR | wxOK, this);
+        return;
+    }
+
+    if (!wxFileExists(exePath + ".bak"))
+    {
+        if (!wxCopyFile(exePath, exePath + ".bak"))
+        {
+            wxMessageBox(_("Failed to write backup!"), _("Error"), wxICON_ERROR | wxOK, this);
+            return;
+        }
+    }
+
+    std::ifstream exeFile(exePath.c_str(), std::ios::binary);
+    std::stringstream ss;
+    ss << exeFile.rdbuf();
+
+    size_t pos = std::string::npos;
+
+    char chAddr[] = {0x66, 0x00, 0x69, 0x00, 0x72, 0x00, 0x61, 0x00, 0x78, 0x00, 0x69, 0x00, 0x73, 0x00, 0x2E, 0x00, 0x63, 0x00, 0x6F, 0x00, 0x6D, 0x00};
+
+    std::string addr(chAddr, 22);
+
+    pos = ss.str().find(addr);
+    if (pos != std::string::npos)
+    {
+        ss.seekp(pos);
+        ss.put('y');
+    }
+    exeFile.close();
+
+    std::ofstream exeFleOut(exePath.c_str(), std::ios::binary);
+    exeFleOut << ss.str();
+
+    StatusBar1->PushStatusText("INI downloading successfully disabled");
+
+    wxMessageBox(_("INI downloading disabled successfully!"), _("Success"), wxICON_INFORMATION | wxOK, this);
 }

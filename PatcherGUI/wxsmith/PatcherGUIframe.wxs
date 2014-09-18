@@ -98,16 +98,6 @@
 											<option>1</option>
 										</object>
 										<object class="sizeritem">
-											<object class="wxButton" name="ID_BUTTON3" variable="Button3" member="yes">
-												<label>XSHAPE</label>
-												<tooltip>Update hashes with XSHAPE (XCOM:EU only!)</tooltip>
-												<handler function="OnUpdateHashes" entry="EVT_BUTTON" />
-											</object>
-											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
-											<border>5</border>
-											<option>1</option>
-										</object>
-										<object class="sizeritem">
 											<object class="wxButton" name="ID_BUTTON4" variable="Button4" member="yes">
 												<label>Show log</label>
 												<tooltip>View install log</tooltip>
@@ -117,29 +107,8 @@
 											<border>5</border>
 											<option>1</option>
 										</object>
-										<object class="sizeritem">
-											<object class="wxButton" name="ID_BUTTON5" variable="Button5" member="yes">
-												<label>Settings</label>
-												<tooltip>Change program settings</tooltip>
-												<handler function="OnChangeSettings" entry="EVT_BUTTON" />
-											</object>
-											<flag>wxALL|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
-											<border>5</border>
-											<option>1</option>
-										</object>
 									</object>
 									<flag>wxALL|wxALIGN_TOP|wxALIGN_CENTER_HORIZONTAL</flag>
-									<border>5</border>
-									<option>1</option>
-								</object>
-								<object class="sizeritem">
-									<object class="wxTextCtrl" name="ID_TEXTCTRL3" variable="TextCtrl3" member="yes">
-										<value>PatchUPK output stream</value>
-										<size>575,88</size>
-										<tooltip>Output stream of console utilities. Copy this to your bugreport if something goes wrong.</tooltip>
-										<style>wxTE_MULTILINE|wxTE_READONLY</style>
-									</object>
-									<flag>wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
 									<border>5</border>
 									<option>1</option>
 								</object>
@@ -152,6 +121,94 @@
 				<flag>wxALL|wxEXPAND|wxFIXED_MINSIZE|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL</flag>
 				<option>1</option>
 			</object>
+		</object>
+		<object class="wxMenuBar" variable="MenuBar1" member="yes">
+			<object class="wxMenu" variable="Menu5" member="yes">
+				<label>&amp;File</label>
+				<object class="wxMenuItem" name="ID_MENUITEM9" variable="MenuItem6" member="yes">
+					<label>Load</label>
+					<accel>CTRL+L</accel>
+					<help>Load mod file</help>
+					<handler function="OnSelectModFile" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM4" variable="MenuItem1" member="yes">
+					<label>Save</label>
+					<accel>CTRL+S</accel>
+					<help>Save current mod file</help>
+					<handler function="OnSaveModFile" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM5" variable="MenuItem2" member="yes">
+					<label>Save as...</label>
+					<help>Save current mod file as...</help>
+					<handler function="OnSaveModFileAs" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM6" variable="MenuItem3" member="yes">
+					<label>Quit</label>
+					<accel>CTRL+X</accel>
+					<help>Quit program</help>
+					<handler function="OnQuit" entry="EVT_MENU" />
+				</object>
+			</object>
+			<object class="wxMenu" variable="Menu4" member="yes">
+				<label>&amp;Tools</label>
+				<object class="wxMenuItem" name="ID_MENUITEM2" variable="Menu2" member="yes">
+					<label>Disable hash check</label>
+					<help>Patch game executable to disable hash check</help>
+					<handler function="OnDisableHashCheck" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM3" variable="Menu3" member="yes">
+					<label>Enable ini loading</label>
+					<help>Patch game executable to enable ini loading</help>
+					<handler function="OnEnableINI" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM13" variable="MenuItem10" member="yes">
+					<label>Disable phoning home</label>
+					<help>Patch game executable to disable ini re-downloading</help>
+					<handler function="OnDisablePhoneHome" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM10" variable="MenuItem7" member="yes">
+					<label>Open config folder</label>
+					<help>Open default config folder in explorer</help>
+					<handler function="OnOpenConfigFolder" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM11" variable="MenuItem8" member="yes">
+					<label>Show debug log</label>
+					<help>Show program debug messages</help>
+					<handler function="OnShowDebugLog" entry="EVT_MENU" />
+				</object>
+			</object>
+			<object class="wxMenu" variable="Menu7" member="yes">
+				<label>&amp;Advanced</label>
+				<object class="wxMenuItem" name="ID_MENUITEM1" variable="Menu1" member="yes">
+					<label>Settings</label>
+					<help>Change program settings</help>
+					<handler function="OnChangeSettings" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM12" variable="MenuItem9" member="yes">
+					<label>Disable hash...</label>
+					<help>Disable specific package hash check</help>
+					<handler function="DisableSpecificPackageHashCheck" entry="EVT_MENU" />
+				</object>
+			</object>
+			<object class="wxMenu" variable="Menu6" member="yes">
+				<label>&amp;Help</label>
+				<object class="wxMenuItem" name="ID_MENUITEM7" variable="MenuItem4" member="yes">
+					<label>About</label>
+					<help>Show about info</help>
+					<handler function="OnAbout" entry="EVT_MENU" />
+				</object>
+				<object class="wxMenuItem" name="ID_MENUITEM8" variable="MenuItem5" member="yes">
+					<label>Readme</label>
+					<accel>F1</accel>
+					<help>Open readme file</help>
+					<handler function="OnShowReadme" entry="EVT_MENU" />
+				</object>
+			</object>
+		</object>
+		<object class="wxStatusBar" name="ID_STATUSBAR1" variable="StatusBar1" member="yes">
+			<fields>1</fields>
+			<widths>-10</widths>
+			<styles>wxSB_FLAT</styles>
 		</object>
 	</object>
 </wxsmith>
