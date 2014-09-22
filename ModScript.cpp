@@ -4,31 +4,6 @@
 #include <cctype>
 #include <algorithm>
 
-std::string FormatUPKScope(UPKScope scope)
-{
-    switch (scope)
-    {
-    case UPKScope::Package:
-        return "Package";
-    case UPKScope::Name:
-        return "Name Table";
-    case UPKScope::Import:
-        return "Import Table";
-    case UPKScope::Export:
-        return "Export Table";
-    case UPKScope::Object:
-        return "Object Data";
-    default:
-        return "";
-    }
-}
-
-void ModScript::InitStreams(std::ostream& err, std::ostream& res)
-{
-    ErrorMessages = &err;
-    ExecutionResults = &res;
-}
-
 void ModScript::SetExecutors()
 {
     Executors.clear();
@@ -67,6 +42,9 @@ void ModScript::SetExecutors()
     Parser.AddKeyName("FIND_HEX");
     Executors.insert({"FIND_CODE", &ModScript::SetCodeOffset}); /// is scope-aware
     Parser.AddKeyName("FIND_CODE");
+    /// resizing
+    Executors.insert({"RESIZE", &ModScript::ResizeExportObject});
+    Parser.AddKeyName("RESIZE");
     /// Actual writing
     Executors.insert({"MODDED_HEX", &ModScript::WriteModdedHEX});   /// key - new style
     Parser.AddKeyName("MODDED_HEX");
@@ -168,6 +146,35 @@ void ModScript::SetExecutors()
     Parser.AddKeyName("EXPAND_FUNCTION");
 }
 
+/********************************************************************
+************************ public functions ***************************
+*********************************************************************/
+
+std::string FormatUPKScope(UPKScope scope)
+{
+    switch (scope)
+    {
+    case UPKScope::Package:
+        return "Package";
+    case UPKScope::Name:
+        return "Name Table";
+    case UPKScope::Import:
+        return "Import Table";
+    case UPKScope::Export:
+        return "Export Table";
+    case UPKScope::Object:
+        return "Object Data";
+    default:
+        return "";
+    }
+}
+
+void ModScript::InitStreams(std::ostream& err, std::ostream& res)
+{
+    ErrorMessages = &err;
+    ExecutionResults = &res;
+}
+
 bool ModScript::Parse(const char* filename)
 {
     BackupScript.clear();
@@ -222,6 +229,10 @@ bool ModScript::ExecuteStack()
     return SetGood();
 }
 
+/********************************************************************
+********************** mod description keys *************************
+*********************************************************************/
+
 bool ModScript::FormatModName(const std::string& Param)
 {
     *ExecutionResults << "Installing mod: "
@@ -242,6 +253,10 @@ bool ModScript::FormatDescription(const std::string& Param)
                       << Param << std::endl;
     return SetGood();
 }
+
+/********************************************************************
+******************* functions to load a package *********************
+*********************************************************************/
 
 void ModScript::AddUPKName(std::string upkname)
 {
@@ -314,20 +329,21 @@ bool ModScript::SetGUID(const std::string& Param)
     std::string PackageName, GUID;
     std::string str = GetStringValue(Param);
     size_t pos = SplitAt(':', str, GUID, PackageName);
-    /*size_t pos = str.find(':');*/
     if (pos == std::string::npos)
     {
         *ErrorMessages << "Bad GUID key format!\n";
         return SetBad();
     }
-    /*PackageName = str.substr(pos + 1);
-    GUID = str.substr(0, pos);*/
     std::transform(PackageName.begin(), PackageName.end(), PackageName.begin(), ::tolower);
     GUIDs.insert({PackageName, GUID});
     *ExecutionResults << "Added allowed GUID:\n";
     *ExecutionResults << "Package: " << PackageName << " GUID: " << GUID << std::endl;
     return SetGood();
 }
+
+/********************************************************************
+**************** functions to set patching scope ********************
+*********************************************************************/
 
 bool ModScript::SetGlobalOffset(const std::string& Param)
 {
@@ -369,6 +385,10 @@ bool ModScript::CheckBehavior()
     {
         return SetGood();
     }
+    else if (ScriptState.Behavior == "INPL")
+    {
+        return SetGood();
+    }
     return SetBad();
 }
 
@@ -388,17 +408,6 @@ bool ModScript::SetObject(const std::string& Param)
         *ErrorMessages << "Bad behavior modifier: " << ScriptState.Behavior << std::endl;
         return SetBad();
     }
-    /*size_t pos = str.find(":");
-    if (pos != std::string::npos)
-    {
-        ScriptState.Behavior = str.substr(pos + 1);
-        str = str.substr(0, pos);
-    }
-    else
-    {
-        ScriptState.Behavior = "KEEP";
-    }
-    std::string ObjName = str;*/
     *ExecutionResults << "Searching for object named " << ObjName << " ...\n";
     UObjectReference ObjRef = ScriptState.Package.FindObject(ObjName);
     if (ObjRef == 0)
@@ -546,145 +555,94 @@ bool ModScript::SetRelOffset(const std::string& Param)
     return SetGood();
 }
 
-bool ModScript::WriteModdedHEX(const std::string& Param)
+/********************************************************************
+**************** helpers to write modded hex/code *******************
+*********************************************************************/
+
+void ModScript::ResetMaxOffset()
 {
-    if (ScriptState.Package.IsLoaded() == false)
+    switch (ScriptState.Scope)
     {
-        *ErrorMessages << "Package is not opened!\n";
-        return SetBad();
+        case UPKScope::Object:
+            ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
+            return;
+        case UPKScope::Name:
+            ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetNameEntry(ScriptState.ObjIdx).EntrySize - 1;
+            return;
+        case UPKScope::Import:
+            ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetImportEntry(ScriptState.ObjIdx).EntrySize - 1;
+            return;
+        case UPKScope::Export:
+            ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).EntrySize - 1;
+            return;
+        default:
+            ScriptState.MaxOffset = ScriptState.Package.GetFileSize() - 1;
+            return;
     }
-    std::vector<char> DataChunk = GetDataChunk(Param);
-    if (DataChunk.size() < 1)
-    {
-        *ErrorMessages << "Invalid/empty data!\n";
-        return SetBad();
-    }
+}
+
+bool ModScript::IsInsideScope(size_t DataSize)
+{
+    return (ScriptState.Offset + ScriptState.RelOffset + DataSize - 1) <= ScriptState.MaxOffset;
+}
+
+size_t ModScript::GetDiff(size_t DataSize)
+{
+    if (!IsInsideScope(DataSize))
+        return ((ScriptState.Offset + ScriptState.RelOffset + DataSize - 1) - ScriptState.MaxOffset);
+    else
+        return 0;
+}
+
+bool ModScript::CheckMoveResize(size_t DataSize, bool FitScope)
+{
     if (ScriptState.Scope == UPKScope::Object)
     {
-        if (CheckMoveResize(DataChunk.size()) == false)
-            return SetBad();
-    }
-    return WriteBinaryData(DataChunk);
-}
-
-bool ModScript::WriteModdedCode(const std::string& Param)
-{
-    if (ScriptState.Package.IsLoaded() == false)
-    {
-        *ErrorMessages << "Package is not opened!\n";
-        return SetBad();
-    }
-    return WriteModdedHEX(ParseScript(Param));
-}
-
-bool ModScript::WriteReplacementCode(const std::string& Param)
-{
-    if (ScriptState.Package.IsLoaded() == false)
-    {
-        *ErrorMessages << "Package is not opened!\n";
-        return SetBad();
-    }
-    if (ScriptState.Scope != UPKScope::Object)
-    {
-        *ErrorMessages << "Replacement code only works for export object data!\n";
-        return SetBad();
-    }
-    size_t ScriptSize = ScriptState.Package.GetScriptSize(ScriptState.ObjIdx);
-    if (ScriptSize == 0)
-    {
-        *ErrorMessages << "Object has no script to replace!\n";
-        return SetBad();
-    }
-    unsigned ScriptMemorySize = 0;
-    std::vector<char> DataChunk = GetDataChunk(ParseScript(Param, &ScriptMemorySize));
-    if (DataChunk.size() < 1)
-    {
-        *ErrorMessages << "Invalid/empty data!\n";
-        return SetBad();
-    }
-    size_t ScriptRelOffset = ScriptState.Package.GetScriptRelOffset(ScriptState.ObjIdx);
-    ScriptState.RelOffset = ScriptRelOffset;
-    /// checking size
-    if (ScriptSize != DataChunk.size())
-    {
-        if (ScriptState.Behavior == "KEEP")
+        bool NeedMoveResize = false;
+        size_t ObjSize = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize;
+        size_t ScopeSize = ScriptState.MaxOffset - ScriptState.Offset - ScriptState.RelOffset + 1;
+        if (FitScope && ScopeSize != DataSize && ScriptState.Behavior != "KEEP")
         {
-            *ErrorMessages << "Replacement code does not fit current scope!\n";
-            return SetBad();
+            NeedMoveResize = true;
+            ObjSize += DataSize - ScopeSize;
         }
-        int ObjSize = (int)ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize + (int)DataChunk.size() - (int)ScriptSize;
-        if (!MoveResizeAtRelOffset(ObjSize))
+        else if (!IsInsideScope(DataSize) && ScriptState.Behavior != "KEEP")
         {
-            *ErrorMessages << "Error moving/resizing object!\n";
-            return SetBad();
+            NeedMoveResize = true;
+            ObjSize += GetDiff(DataSize);
+        }
+        else if (ScriptState.Behavior == "MOVE")
+        {
+            NeedMoveResize = true;
+        }
+        if (NeedMoveResize)
+        {
+            return DoResize(ObjSize);
         }
     }
-    /// resetting max offset just in case to clear any possible previous FIND_HEX calls
-    ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
-    ScriptSize = DataChunk.size();
-    *ExecutionResults << "New script memory size: " << ScriptMemorySize << " (" << FormatHEX(ScriptMemorySize) << ")\n";
-    *ExecutionResults << "New script serial size: " << ScriptSize << " (" << FormatHEX((uint32_t)ScriptSize) << ")\n";
-    /// writing sizes
-    std::vector<char> SizesDataChunk(8);
-    memcpy(SizesDataChunk.data(), reinterpret_cast<char*>(&ScriptMemorySize), 4);
-    memcpy(SizesDataChunk.data() + 4, reinterpret_cast<char*>(&ScriptSize), 4);
-    ScriptState.RelOffset = ScriptRelOffset - 8;
-    if (!WriteBinaryData(SizesDataChunk))
-    {
-        *ErrorMessages << "Error writing new memory/file sizes!\n";
-        return SetBad();
-    }
-    /// writing script
-    ScriptState.RelOffset = ScriptRelOffset;
-    return WriteBinaryData(DataChunk);
-}
-
-bool ModScript::WriteInsertCode(const std::string& Param)
-{
-    if (ScriptState.Package.IsLoaded() == false)
-    {
-        *ErrorMessages << "Package is not opened!\n";
-        return SetBad();
-    }
-    if (ScriptState.Scope != UPKScope::Object)
-    {
-        *ErrorMessages << "Inserting code only works for export object data!\n";
-        return SetBad();
-    }
-    if (ScriptState.Behavior == "KEEP")
-    {
-        *ErrorMessages << "Can't insert new code as current behavior is set to \"KEEP\"!\n";
-        return SetBad();
-    }
-    std::vector<char> DataChunk = GetDataChunk(ParseScript(Param));
-    if (DataChunk.size() < 1)
-    {
-        *ErrorMessages << "Invalid/empty data!\n";
-        return SetBad();
-    }
-    int ObjSize = (int)ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize + (int)DataChunk.size();
-    if (!MoveResizeAtRelOffset(ObjSize))
-    {
-        *ErrorMessages << "Error moving/resizing object!\n";
-        return SetBad();
-    }
-    return WriteBinaryData(DataChunk);
-}
-
-bool ModScript::CheckMoveResize(size_t DataSize)
-{
-    if ((!IsInsideScope(DataSize) && ScriptState.Behavior == "AUTO") || ScriptState.Behavior == "MOVE")
-    {
-        size_t ObjSize = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize + GetDiff(DataSize);
-        return MoveResizeAtRelOffset(ObjSize);
-    }
-    else if (!IsInsideScope(DataSize))
+    if (!IsInsideScope(DataSize))
     {
         *ErrorMessages << "Data chunk too large for current scope!\n";
         return SetBad();
     }
-    ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
+    /// resetting max offset and before flag
+    ResetMaxOffset();
+    /// reset before hex/code status
+    ScriptState.BeforeUsed = false;
+    ScriptState.BeforeMemSize = 0;
     return SetGood();
+}
+
+bool ModScript::DoResize(int ObjSize)
+{
+    if (ScriptState.Behavior == "INPL")
+    {
+        return ResizeInPlace(ObjSize);
+    }
+    else
+    {
+        return MoveResizeAtRelOffset(ObjSize);
+    }
 }
 
 bool ModScript::MoveResizeAtRelOffset(int ObjSize)
@@ -706,13 +664,31 @@ bool ModScript::MoveResizeAtRelOffset(int ObjSize)
     return SetGood();
 }
 
-bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk)
+bool ModScript::ResizeInPlace(int ObjSize)
 {
-    if (!IsInsideScope(DataChunk.size()))
+    size_t oldSize = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize;
+    std::vector<char> oldData = ScriptState.Package.GetExportData(ScriptState.ObjIdx);
+    *ExecutionResults << "Resizing object in place.\nNew object size: " << ObjSize << std::endl;
+    if (ScriptState.Package.ResizeInPlace(ScriptState.ObjIdx, ObjSize, ScriptState.RelOffset) == false)
     {
-        *ErrorMessages << "Data chunk too large for current scope!\n";
+        *ErrorMessages << "Error resizing object in place!\n";
         return SetBad();
     }
+    *ExecutionResults << "Object resized in place successfully.\n";
+    ScriptState.Offset = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialOffset;
+    ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
+    /// backup info
+    std::ostringstream ss;
+    ss << "OBJECT=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << ":INPL" << "\n\n";
+    ss << "RESIZE=" << oldSize << "\n\n";
+    ss << "[MODDED_HEX]\n" << MakeTextBlock(oldData.data(), oldData.size()) << "\n\n";
+    ss << BackupScript[ScriptState.UPKName];
+    BackupScript[ScriptState.UPKName] = ss.str();
+    return SetGood();
+}
+
+bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk)
+{
     std::vector<char> BackupData;
     *ExecutionResults << "Writing data chunk of size " << FormatHEX((uint32_t)DataChunk.size())
                       << " (" << DataChunk.size() << ") at"
@@ -729,8 +705,6 @@ bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk)
     *ExecutionResults << "Write successful!" << std::endl;
     /// backup info
     std::ostringstream ss;
-    /*ss << "OFFSET=" << (ScriptState.Offset + ScriptState.RelOffset) << "\n\n"
-       << "[MODDED_HEX]\n" << MakeTextBlock(BackupData.data(), BackupData.size()) << "\n\n";*/
     switch (ScriptState.Scope)
     {
         case UPKScope::Object:
@@ -759,10 +733,36 @@ bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk)
     return SetGood();
 }
 
+bool ModScript::WriteModdedData(const std::vector<char>& DataChunk, bool FitScope)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    if (DataChunk.size() < 1)
+    {
+        *ErrorMessages << "Invalid/empty data!\n";
+        return SetBad();
+    }
+    if (CheckMoveResize(DataChunk.size(), FitScope) == false)
+        return SetBad();
+    return WriteBinaryData(DataChunk);
+}
+
+/********************************************************************
+************** functions to write modified hex/code *****************
+*********************************************************************/
+
 bool ModScript::WriteUndoMoveResize(const std::string& Param)
 {
     if (SetObject(Param) == false)
         return SetBad();
+    if (ScriptState.Scope != UPKScope::Object)
+    {
+        *ErrorMessages << "Can (undo) move/resize export data only!\n";
+        return SetBad();
+    }
     *ExecutionResults << "Restoring object ...\n";
     if (ScriptState.Package.UndoMoveResizeObject(ScriptState.ObjIdx) == false)
     {
@@ -784,6 +784,119 @@ bool ModScript::WriteUndoMoveResize(const std::string& Param)
     return SetGood();
 }
 
+bool ModScript::ResizeExportObject(const std::string& Param)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    if (ScriptState.Scope != UPKScope::Object)
+    {
+        *ErrorMessages << "Resizing only works for export object data!\n";
+        return SetBad();
+    }
+    if (ScriptState.Behavior == "KEEP")
+    {
+        *ErrorMessages << "Can't resize: object behavior set to KEEP!\n\n";
+        return SetBad();
+    }
+    std::string str = GetStringValue(Param);
+    std::string newSizeStr = str;
+    std::string resizeAtStr = "";
+    SplitAt(':', str, newSizeStr, resizeAtStr);
+    int newSize = GetUnsignedValue(newSizeStr);
+    /// reset object scope
+    ScriptState.RelOffset = 0;
+    ResetMaxOffset();
+    /// check for resizeAt
+    int resizeAt = -1;
+    if (resizeAtStr != "")
+    {
+        resizeAt = GetUnsignedValue(resizeAtStr);
+        if (resizeAt > newSize)
+        {
+            *ErrorMessages << "Bad RESIZE parameter: " << newSize << " : " << resizeAt << "!\n\n";
+            return SetBad();
+        }
+        ScriptState.RelOffset = resizeAt;
+    }
+    return CheckMoveResize(newSize, true);
+}
+
+bool ModScript::WriteModdedHEX(const std::string& Param)
+{
+    std::vector<char> DataChunk = GetDataChunk(Param);
+    return WriteModdedData(DataChunk);
+}
+
+bool ModScript::WriteModdedCode(const std::string& Param)
+{
+    return WriteModdedHEX(ParseScript(Param));
+}
+
+bool ModScript::WriteReplacementCode(const std::string& Param)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    if (ScriptState.Scope != UPKScope::Object)
+    {
+        *ErrorMessages << "Replacement code only works for export object data!\n";
+        return SetBad();
+    }
+    size_t ScriptSize = ScriptState.Package.GetScriptSize(ScriptState.ObjIdx);
+    if (ScriptSize == 0)
+    {
+        *ErrorMessages << "Object has no script to replace!\n";
+        return SetBad();
+    }
+    size_t ScriptRelOffset = ScriptState.Package.GetScriptRelOffset(ScriptState.ObjIdx);
+    ScriptState.RelOffset = ScriptRelOffset - 8;
+    ScriptState.MaxOffset = ScriptState.Offset + ScriptRelOffset + ScriptSize - 1;
+    unsigned ScriptMemorySize = 0;
+    /// parse script
+    std::vector<char> DataChunk = GetDataChunk(ParseScript(Param, &ScriptMemorySize));
+    if (DataChunk.size() < 1)
+    {
+        *ErrorMessages << "Invalid/empty data!\n";
+        return SetBad();
+    }
+    /// sizes + data
+    ScriptSize = DataChunk.size();
+    *ExecutionResults << "New script memory size: " << ScriptMemorySize << " (" << FormatHEX(ScriptMemorySize) << ")\n";
+    *ExecutionResults << "New script serial size: " << ScriptSize << " (" << FormatHEX((uint32_t)ScriptSize) << ")\n";
+    std::vector<char> DataChunkWithSizes(8 + DataChunk.size());
+    memcpy(DataChunkWithSizes.data(), reinterpret_cast<char*>(&ScriptMemorySize), 4);
+    memcpy(DataChunkWithSizes.data() + 4, reinterpret_cast<char*>(&ScriptSize), 4);
+    memcpy(DataChunkWithSizes.data() + 8, DataChunk.data(), DataChunk.size());
+    return WriteModdedData(DataChunkWithSizes, true);
+}
+
+bool ModScript::WriteInsertCode(const std::string& Param)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    if (ScriptState.Scope != UPKScope::Object)
+    {
+        *ErrorMessages << "Inserting code only works for export object data!\n";
+        return SetBad();
+    }
+    std::vector<char> DataChunk = GetDataChunk(ParseScript(Param));
+    /// set max offset to current offset to force resize
+    ScriptState.MaxOffset = ScriptState.Offset + ScriptState.RelOffset;
+    return WriteModdedData(DataChunk);
+}
+
+/********************************************************************
+******************* function to write binary file *******************
+*********************************************************************/
+
 bool ModScript::WriteModdedFile(const std::string& Param)
 {
     if (ScriptState.Package.IsLoaded() == false)
@@ -795,12 +908,6 @@ bool ModScript::WriteModdedFile(const std::string& Param)
     std::string FilePath = str;
     std::string Spec = "";
     SplitAt(':', str, FilePath, Spec);
-    /*size_t pos = str.find(':');
-    if (pos != std::string::npos)
-    {
-        FilePath = str.substr(0, pos);
-        Spec = str.substr(pos);
-    }*/
     *ExecutionResults << "Reading binary data from file: " << FilePath << " ...\n";
     std::ifstream BinFile(FilePath.c_str(), std::ios::binary);
     if (!BinFile)
@@ -825,33 +932,18 @@ bool ModScript::WriteModdedFile(const std::string& Param)
         FileName = FileName.substr(0, FileName.find(".NameEntry"));
         if (SetNameEntry(FileName) == false)
             return SetBad();
-        if (DataChunk.size() != ScriptState.Package.GetNameEntry(ScriptState.ObjIdx).EntrySize)
-        {
-            *ErrorMessages << "File size is not equal to entry size!\n";
-            return SetBad();
-        }
     }
     else if (FileName.find(".ImportEntry") != std::string::npos)
     {
         FileName = FileName.substr(0, FileName.find(".ImportEntry"));
         if (SetImportEntry(FileName) == false)
             return SetBad();
-        if (DataChunk.size() != ScriptState.Package.GetImportEntry(ScriptState.ObjIdx).EntrySize)
-        {
-            *ErrorMessages << "File size is not equal to entry size!\n";
-            return SetBad();
-        }
     }
     else if (FileName.find(".ExportEntry") != std::string::npos)
     {
         FileName = FileName.substr(0, FileName.find(".ExportEntry"));
         if (SetExportEntry(FileName) == false)
             return SetBad();
-        if (DataChunk.size() != ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).EntrySize)
-        {
-            *ErrorMessages << "File size is not equal to entry size!\n";
-            return SetBad();
-        }
     }
     else
     {
@@ -859,35 +951,8 @@ bool ModScript::WriteModdedFile(const std::string& Param)
         UObjectReference ObjRef = ScriptState.Package.FindObject(FileName);
         if (ObjRef > 0)
         {
-            //if (SetObject(FileName + Spec) == false)
             if (SetObject(FileName + ":" + Spec) == false)
                 return SetBad();
-            if (DataChunk.size() != ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize)
-            {
-                if (ScriptState.Behavior == "AUTO" || ScriptState.Behavior == "MOVE")
-                {
-                    *ExecutionResults << "Moving/resizing object.\nNew object size: " << DataChunk.size() << std::endl;
-                    if (ScriptState.Package.MoveResizeObject(ScriptState.ObjIdx, DataChunk.size()) == false)
-                    {
-                        *ErrorMessages << "Error moving/resizing object!\n";
-                        return SetBad();
-                    }
-                    *ExecutionResults << "Object moved/resized successfully.\n";
-                    ScriptState.Offset = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialOffset;
-                    ScriptState.RelOffset = 0;
-                    ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
-                    /// backup info
-                    std::ostringstream ss;
-                    ss << "EXPAND_UNDO=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
-                    ss << BackupScript[ScriptState.UPKName];
-                    BackupScript[ScriptState.UPKName] = ss.str();
-                }
-                else
-                {
-                    *ErrorMessages << "File size is not equal to object serial size!\n";
-                    return SetBad();
-                }
-            }
         }
         else
         {
@@ -895,8 +960,12 @@ bool ModScript::WriteModdedFile(const std::string& Param)
             return SetBad();
         }
     }
-    return WriteBinaryData(DataChunk);
+    return WriteModdedData(DataChunk, true);
 }
+
+/********************************************************************
+********************* functions to write values *********************
+*********************************************************************/
 
 bool ModScript::WriteByteValue(const std::string& Param)
 {
@@ -910,7 +979,7 @@ bool ModScript::WriteByteValue(const std::string& Param)
     std::vector<char> dataChunk(1);
     memcpy(dataChunk.data(), reinterpret_cast<char*>(&ByteVal), 1);
     *ExecutionResults << "Byte value: " << (int)ByteVal << " (data chunk: " << FormatHEX(dataChunk) << ")" << std::endl;
-    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+    return WriteModdedData(dataChunk);
 }
 
 bool ModScript::WriteFloatValue(const std::string& Param)
@@ -919,7 +988,7 @@ bool ModScript::WriteFloatValue(const std::string& Param)
     std::vector<char> dataChunk(4);
     memcpy(dataChunk.data(), reinterpret_cast<char*>(&FloatVal), 4);
     *ExecutionResults << "Float value: " << FloatVal << " (data chunk: " << FormatHEX(dataChunk) << ")" << std::endl;
-    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+    return WriteModdedData(dataChunk);
 }
 
 bool ModScript::WriteIntValue(const std::string& Param)
@@ -928,7 +997,7 @@ bool ModScript::WriteIntValue(const std::string& Param)
     std::vector<char> dataChunk(4);
     memcpy(dataChunk.data(), reinterpret_cast<char*>(&IntVal), 4);
     *ExecutionResults << "Int value: " << IntVal << " (data chunk: " << FormatHEX(dataChunk) << ")" << std::endl;
-    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+    return WriteModdedData(dataChunk);
 }
 
 bool ModScript::WriteUnsignedValue(const std::string& Param)
@@ -937,7 +1006,7 @@ bool ModScript::WriteUnsignedValue(const std::string& Param)
     std::vector<char> dataChunk(4);
     memcpy(dataChunk.data(), reinterpret_cast<char*>(&UVal), 4);
     *ExecutionResults << "Unsigned value: " << UVal << " (data chunk: " << FormatHEX(dataChunk) << ")" << std::endl;
-    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+    return WriteModdedData(dataChunk);
 }
 
 bool ModScript::WriteNameIdx(const std::string& Param)
@@ -965,7 +1034,7 @@ bool ModScript::WriteNameIdx(const std::string& Param)
     std::vector<char> dataChunk(8);
     memcpy(dataChunk.data(), reinterpret_cast<char*>(&NameIdx), 8);
     *ExecutionResults << "UNameIndex: " << str << " -> " << FormatHEX(NameIdx) << std::endl;
-    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+    return WriteModdedData(dataChunk);
 }
 
 bool ModScript::WriteObjectIdx(const std::string& Param)
@@ -982,58 +1051,12 @@ bool ModScript::WriteObjectIdx(const std::string& Param)
     std::vector<char> dataChunk(4);
     memcpy(dataChunk.data(), reinterpret_cast<char*>(&ObjRef), 4);
     *ExecutionResults << "UObjectReference: " << FullName << " -> " << FormatHEX((uint32_t)ObjRef) << std::endl;
-    return WriteModdedHEX(MakeTextBlock(dataChunk.data(), dataChunk.size()));
+    return WriteModdedData(dataChunk);
 }
 
-bool ModScript::WriteRename(const std::string& Param)
-{
-    if (ScriptState.Package.IsLoaded() == false)
-    {
-        *ErrorMessages << "Package is not opened!\n";
-        return SetBad();
-    }
-    std::string str = GetStringValue(Param), ObjName, NewName;
-    size_t pos = SplitAt(':', str, ObjName, NewName);
-    /*size_t pos = str.find(":");*/
-    if (pos == std::string::npos)
-    {
-        *ErrorMessages << "Incorrect rename entry format: " << str << std::endl;
-        return SetBad();
-    }
-    /*std::string ObjName = str.substr(0, pos);
-    std::string NewName = str.substr(pos + 1);*/
-    *ExecutionResults << "Renaming " << ObjName << " to " << NewName << " ...\n";
-    if (NewName.length() != ObjName.length())
-    {
-        *ErrorMessages << "New name must have the same length as old name!\n";
-        return SetBad();
-    }
-    if (SetNameEntry(ObjName) == false)
-    {
-        if (SetNameEntry(NewName) == false)
-        {
-            *ErrorMessages << "Can't find any of the names specified!\n";
-            return SetBad();
-        }
-        else
-        {
-            *ExecutionResults << "Name entry already has name " << NewName << std::endl;
-            return SetGood();
-        }
-    }
-    if (ScriptState.Package.WriteNameTableName(ScriptState.ObjIdx, NewName) == false)
-    {
-        *ErrorMessages << "Error writing new name!\n";
-        return SetBad();
-    }
-    *ExecutionResults << "Renamed successfully!\n";
-    /// backup info
-    std::ostringstream ss;
-    ss << "RENAME=" << NewName << ":" << ObjName << "\n\n";
-    ss << BackupScript[ScriptState.UPKName];
-    BackupScript[ScriptState.UPKName] = ss.str();
-    return SetGood();
-}
+/********************************************************************
+*********************** find/replace functions **********************
+*********************************************************************/
 
 bool ModScript::SetDataOffset(const std::string& Param, bool isEnd, bool isBeforeData)
 {
@@ -1131,21 +1154,6 @@ bool ModScript::SetDataChunkOffset(const std::string& Param)
             return SetBad();
         }
     }
-    /*size_t pos = Param.find(':');
-    if (pos != std::string::npos)
-    {
-        DataStr = Param.substr(0, pos);
-        std::string SpecStr = Param.substr(pos + 1);
-        if (SpecStr == "END")
-        {
-            isEnd = true;
-        }
-        else if (SpecStr != "BEG")
-        {
-            *ErrorMessages << "Unknown specifier: " << SpecStr << std::endl;
-            return SetBad();
-        }
-    }*/
     return SetDataOffset(DataStr, isEnd, false);
 }
 
@@ -1171,21 +1179,6 @@ bool ModScript::SetCodeOffset(const std::string& Param)
             return SetBad();
         }
     }
-    /*size_t pos = Param.find(':');
-    if (pos != std::string::npos)
-    {
-        DataStr = Param.substr(0, pos);
-        std::string SpecStr = Param.substr(pos + 1);
-        if (SpecStr == "END")
-        {
-            isEnd = true;
-        }
-        else if (SpecStr != "BEG")
-        {
-            *ErrorMessages << "Unknown specifier: " << SpecStr << std::endl;
-            return SetBad();
-        }
-    }*/
     return SetDataOffset(ParseScript(DataStr), isEnd, false);
 }
 
@@ -1209,6 +1202,18 @@ bool ModScript::SetBeforeCodeOffset(const std::string& Param)
 
 bool ModScript::WriteAfterHEX(const std::string& Param)
 {
+    return WriteAfterData(Param);
+}
+
+bool ModScript::WriteAfterCode(const std::string& Param)
+{
+    unsigned MemSize = 0;
+    std::string ParsedParam = ParseScript(Param, &MemSize);
+    return WriteAfterData(ParsedParam, MemSize);
+}
+
+bool ModScript::WriteAfterData(const std::string& DataBlock, int MemSize)
+{
     if (ScriptState.Package.IsLoaded() == false)
     {
         *ErrorMessages << "Package is not opened!\n";
@@ -1219,112 +1224,78 @@ bool ModScript::WriteAfterHEX(const std::string& Param)
         *ErrorMessages << "Can't use AFTER without BEFORE!\n";
         return SetBad();
     }
-    std::vector<char> DataChunk = GetDataChunk(Param);
+    std::vector<char> DataChunk = GetDataChunk(DataBlock);
     if (DataChunk.size() < 1)
     {
         *ErrorMessages << "Invalid/empty data!\n";
         return SetBad();
     }
-    size_t ScopeSize = ScriptState.MaxOffset - ScriptState.Offset - ScriptState.RelOffset + 1;
-    /// checking if scope is inside script for objects with scripts
-    ScriptState.isInsideScript = false;
-    if (ScriptState.Scope == UPKScope::Object)
-    {
-        size_t ScriptSize = ScriptState.Package.GetScriptSize(ScriptState.ObjIdx);
-        if (ScriptSize != 0)
-        {
-            size_t ScriptRelOffset = ScriptState.Package.GetScriptRelOffset(ScriptState.ObjIdx);
-            if ( ScriptState.RelOffset >= ScriptRelOffset &&
-                (ScriptState.RelOffset + ScopeSize) <= (ScriptRelOffset + ScriptSize) )
-            {
-                ScriptState.isInsideScript = true;
-            }
-        }
-    }
-    /// checking size
-    if (ScopeSize != DataChunk.size())
-    {
-        if (ScriptState.Scope != UPKScope::Object || ScriptState.Behavior == "KEEP")
-        {
-            *ErrorMessages << "Replacement code does not fit current scope!\n";
-            return SetBad();
-        }
-        int ObjSize = (int)ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize + (int)DataChunk.size() - (int)ScopeSize;
-        if (!MoveResizeAtRelOffset(ObjSize))
-        {
-            *ErrorMessages << "Error moving/resizing object!\n";
-            return SetBad();
-        }
-    }
-    /// resetting max offset and before flag
-    if (ScriptState.Scope == UPKScope::Package)
-    {
-        ScriptState.MaxOffset = ScriptState.Package.GetFileSize() - 1;
-    }
-    else
-    {
-        ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
-    }
-    ScriptState.BeforeUsed = false;
-    /// trying to adjust script size for objects, which use scripts
-    if (ScriptState.isInsideScript)
-    {
-        size_t ScriptSize = ScriptState.Package.GetScriptSize(ScriptState.ObjIdx);
-        if (ScriptSize != 0)
-        {
-            ScriptSize = (int)ScriptSize + (int)DataChunk.size() - (int)ScopeSize;
-            *ExecutionResults << "New script serial size: " << ScriptSize << " (" << FormatHEX((uint32_t)ScriptSize) << ")\n";
-            std::vector<char> SizeDataChunk(4);
-            memcpy(SizeDataChunk.data(), reinterpret_cast<char*>(&ScriptSize), 4);
-            size_t SavedRelOffset = ScriptState.RelOffset;
-            size_t ScriptRelOffset = ScriptState.Package.GetScriptRelOffset(ScriptState.ObjIdx);
-            ScriptState.RelOffset = ScriptRelOffset - 4;
-            if (!WriteBinaryData(SizeDataChunk))
-            {
-                *ErrorMessages << "Error writing new script size!\n";
-                return SetBad();
-            }
-            ScriptState.RelOffset = SavedRelOffset;
-        }
-    }
+    /// calculate adjusted script and memory size for objects, which use scripts
+    std::vector<char> SizesChunk;
+    size_t SizesRelOffset;
+    bool needAdjustSizes = GetAdjustedSizes(SizesChunk, SizesRelOffset, DataChunk.size(), MemSize);
     /// writing data
-    return WriteBinaryData(DataChunk);
-}
-
-bool ModScript::WriteAfterCode(const std::string& Param)
-{
-    unsigned MemSize = 0;
-    std::string ParsedParam = ParseScript(Param, &MemSize);
-    if (!WriteAfterHEX(ParsedParam))
-    {
+    if (!WriteModdedData(DataChunk, true))
         return SetBad();
-    }
-    /// trying to adjust script memory size for objects, which use scripts
-    if (ScriptState.isInsideScript && ScriptState.Behavior != "KEEP")
+    /// write new sizes
+    if (needAdjustSizes)
     {
-        size_t ScriptMemSize = ScriptState.Package.GetScriptMemSize(ScriptState.ObjIdx);
-        if (ScriptMemSize != 0 && ((int)MemSize - (int)ScriptState.BeforeMemSize) != 0)
-        {
-            ScriptMemSize = (int)ScriptMemSize + (int)MemSize - (int)ScriptState.BeforeMemSize;
-            *ExecutionResults << "New script memory size: " << ScriptMemSize << " (" << FormatHEX((uint32_t)ScriptMemSize) << ")\n";
-            std::vector<char> SizeDataChunk(4);
-            memcpy(SizeDataChunk.data(), reinterpret_cast<char*>(&ScriptMemSize), 4);
-            size_t SavedRelOffset = ScriptState.RelOffset;
-            size_t ScriptRelOffset = ScriptState.Package.GetScriptRelOffset(ScriptState.ObjIdx);
-            ScriptState.RelOffset = ScriptRelOffset - 8;
-            if (!WriteBinaryData(SizeDataChunk))
-            {
-                *ErrorMessages << "Error writing new script memory size!\n";
-                return SetBad();
-            }
-            ScriptState.RelOffset = SavedRelOffset;
-            ScriptState.BeforeMemSize = 0;
-        }
+        ScriptState.RelOffset = SizesRelOffset;
+        return WriteModdedData(SizesChunk);
     }
-    /// reset inside script flag
-    ScriptState.isInsideScript = false;
     return SetGood();
 }
+
+bool ModScript::GetAdjustedSizes(std::vector<char>& SizesChunk, size_t& SizesRelOffset, int DataSize, int NewMemSize)
+{
+    SizesRelOffset = 0;
+    SizesChunk.clear();
+    /// not inside export object
+    if (ScriptState.Scope != UPKScope::Object)
+    {
+        return false;
+    }
+    size_t ScriptSize = ScriptState.Package.GetScriptSize(ScriptState.ObjIdx);
+    /// does not have script
+    if (ScriptSize == 0)
+    {
+        return false;
+    }
+    size_t ScriptMemSize = ScriptState.Package.GetScriptMemSize(ScriptState.ObjIdx);
+    size_t ScriptRelOffset = ScriptState.Package.GetScriptRelOffset(ScriptState.ObjIdx);
+    size_t ScopeSize = ScriptState.MaxOffset - ScriptState.Offset - ScriptState.RelOffset + 1;
+    /// checking if we're inside script
+    if ( ScriptState.RelOffset >= ScriptRelOffset &&
+        (ScriptState.RelOffset + ScopeSize) <= (ScriptRelOffset + ScriptSize) )
+    {
+        /// calculating new script size
+        size_t NewScriptSize = (int)ScriptSize + (int)DataSize - (int)ScopeSize;
+        /// calculating new memory size
+        size_t NewScriptMemSize = ScriptMemSize;
+        if (NewMemSize != -1)
+        {
+            NewScriptMemSize = (int)ScriptMemSize + NewMemSize - (int)ScriptState.BeforeMemSize;
+        }
+        /// no change in size
+        if (NewScriptSize == ScriptSize && NewScriptMemSize == ScriptMemSize)
+        {
+            return false;
+        }
+        /// save new sizes
+        *ExecutionResults << "New script memory size: " << NewScriptMemSize << " (" << FormatHEX((uint32_t)NewScriptMemSize) << ")\n";
+        *ExecutionResults << "New script serial size: " << NewScriptSize << " (" << FormatHEX((uint32_t)NewScriptSize) << ")\n";
+        SizesChunk.resize(8);
+        memcpy(SizesChunk.data(), reinterpret_cast<char*>(&NewScriptMemSize), 4);
+        memcpy(SizesChunk.data() + 4, reinterpret_cast<char*>(&NewScriptSize), 4);
+        SizesRelOffset = ScriptRelOffset - 8;
+        return true;
+    }
+    return false;
+}
+
+/********************************************************************
+********************** move/expand legacy code **********************
+*********************************************************************/
 
 bool ModScript::WriteMoveExpandLegacy(const std::string& Param)
 {
@@ -1340,21 +1311,8 @@ bool ModScript::WriteMoveExpandLegacy(const std::string& Param)
     {
         NewSize = GetUnsignedValue(SizeStr);
     }
-    /*size_t pos = str.find(":");
-    if (pos != std::string::npos)
-    {
-        ObjName = str.substr(0, pos);
-    }
-    else
-    {
-        ObjName = str;
-    }*/
     if (SetObject(ObjName) == false)
         return SetBad();
-    /*if (pos != std::string::npos)
-    {
-        NewSize = GetUnsignedValue(str.substr(pos + 1));
-    }*/
     *ExecutionResults << "Moving/expanding function ...\n";
     if (ScriptState.Package.MoveExportData(ScriptState.ObjIdx, NewSize) == false)
     {
@@ -1374,23 +1332,18 @@ bool ModScript::WriteMoveExpandLegacy(const std::string& Param)
     return SetGood();
 }
 
-bool ModScript::IsInsideScope(size_t DataSize)
-{
-    return (ScriptState.Offset + ScriptState.RelOffset + DataSize - 1) <= ScriptState.MaxOffset;
-}
-
-size_t ModScript::GetDiff(size_t DataSize)
-{
-    if (!IsInsideScope(DataSize))
-        return ((ScriptState.Offset + ScriptState.RelOffset + DataSize - 1) - ScriptState.MaxOffset);
-    else
-        return 0;
-}
+/********************************************************************
+************************ for optional sections **********************
+*********************************************************************/
 
 bool ModScript::Sink(const std::string& Param)
 {
     return SetGood();
 }
+
+/********************************************************************
+************************* get backup script *************************
+*********************************************************************/
 
 std::string ModScript::GetBackupScript()
 {
@@ -1401,6 +1354,57 @@ std::string ModScript::GetBackupScript()
            << BackupScript[UPKNames[i]] << "\n\n";
     }
     return ss.str();
+}
+
+/********************************************************************
+*************************** table entries  **************************
+*********************************************************************/
+
+bool ModScript::WriteRename(const std::string& Param)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    std::string str = GetStringValue(Param), ObjName, NewName;
+    size_t pos = SplitAt(':', str, ObjName, NewName);
+    if (pos == std::string::npos)
+    {
+        *ErrorMessages << "Incorrect rename entry format: " << str << std::endl;
+        return SetBad();
+    }
+    *ExecutionResults << "Renaming " << ObjName << " to " << NewName << " ...\n";
+    if (NewName.length() != ObjName.length())
+    {
+        *ErrorMessages << "New name must have the same length as old name!\n";
+        return SetBad();
+    }
+    if (SetNameEntry(ObjName) == false)
+    {
+        if (SetNameEntry(NewName) == false)
+        {
+            *ErrorMessages << "Can't find any of the names specified!\n";
+            return SetBad();
+        }
+        else
+        {
+            *ExecutionResults << "Name entry already has name " << NewName << std::endl;
+            return SetGood();
+        }
+    }
+    if (ScriptState.Package.WriteNameTableName(ScriptState.ObjIdx, NewName) == false)
+    {
+        *ErrorMessages << "Error writing new name!\n";
+        return SetBad();
+    }
+    *ExecutionResults << "Renamed successfully!\n";
+    /// backup info
+    std::ostringstream ss;
+    ss << "RENAME=" << NewName << ":" << ObjName << "\n\n";
+    ss << BackupScript[ScriptState.UPKName];
+    BackupScript[ScriptState.UPKName] = ss.str();
+    return SetGood();
 }
 
 bool ModScript::WriteAddNameEntry(const std::string& Param)
@@ -1490,6 +1494,10 @@ bool ModScript::WriteAddExportEntry(const std::string& Param)
     return SetGood();
 }
 
+/********************************************************************
+************************ pseudo-code parsing ************************
+*********************************************************************/
+
 bool ModScript::AddAlias(const std::string& Param)
 {
     if (ScriptState.Package.IsLoaded() == false)
@@ -1499,14 +1507,11 @@ bool ModScript::AddAlias(const std::string& Param)
     }
     std::string Name, Replacement;
     size_t pos = SplitAt(':', Param, Name, Replacement);
-    /*size_t pos = Param.find(':');*/
     if (pos == std::string::npos)
     {
         *ErrorMessages << "Bad key value: " << Param << std::endl;
         return SetBad();
     }
-    /*Name = Param.substr(0, pos);
-    Replacement = Param.substr(pos + 1);*/
     if (ScriptState.Scope == UPKScope::Object)
     {
         Name = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName + '.' + Name;
@@ -1576,11 +1581,6 @@ std::string GetWord(std::istream& in)
     /// extract token
     if (ch == '<')
     {
-        /*while (ch != '>' && in.good())
-        {
-            ch = in.get();
-            word += ch;
-        }*/
         bool done = false;
         while (!done && in.good())
         {
@@ -1671,13 +1671,10 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
             ScriptHEX.str("");
             ScriptHEX.clear();
         }
-        //std::cout << "Script data:\n" << WorkingData.str() << "\nScript data end.\n";
         while (!WorkingData.eof())
         {
             std::string NextWord;
             NextWord = GetWord(WorkingData);
-            //WorkingData >> NextWord;
-            //std::cout << "!" << NextWord << "!" << std::endl;
             if (NextWord == "")
             {
                 /// skip empty lines
@@ -1745,7 +1742,6 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
             }
         }
         ++numPasses;
-        //std::cout << "Script hex:\n" << ScriptHEX.str() << "\nScript hex end.\n";
     } while (needSecondPass);
     if (ScriptMemSizeRef != nullptr)
     {
@@ -1779,7 +1775,6 @@ std::string ModScript::TokenToHEX(std::string Token, unsigned* MemSizeRef)
 {
     std::string Code = Token.substr(1, Token.length()-2); /// remove <>
     Code = EatWhite(Code, '\"'); /// remove white-spaces
-    //std::cout << "!" << Code << "!" << std::endl;
     unsigned MemSize = 1;
     std::vector<char> dataChunk;
     if (Code[0] == '!') /// parse alias
@@ -1856,9 +1851,7 @@ std::string ModScript::TokenToHEX(std::string Token, unsigned* MemSizeRef)
         }
         else if (Code[1] == 't')
         {
-            //std::string strVal = Code.substr(3, Code.length()-4);
             std::string strVal = ExtractString(Code);
-            //std::cout << "!" << strVal << "!" << std::endl;
             dataChunk.resize(strVal.length()+1);
             memcpy(dataChunk.data(), strVal.c_str(), strVal.length()+1);
             MemSize = strVal.length()+1;

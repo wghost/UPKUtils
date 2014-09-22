@@ -18,12 +18,13 @@ UPKUtils::UPKUtils(const char* filename)
 
 bool UPKUtils::Read(const char* filename)
 {
+    UPKFileName = filename;
     if (UPKFile.is_open())
     {
         UPKFile.close();
         UPKFile.clear();
     }
-    UPKFile.open(filename, std::ios::binary | std::ios::in | std::ios::out);
+    UPKFile.open(UPKFileName, std::ios::binary | std::ios::in | std::ios::out);
     if (!UPKFile.is_open())
         return false;
     return UPKUtils::Reload();
@@ -61,7 +62,7 @@ void UPKUtils::SaveExportData(uint32_t idx)
     out.write(dataChunk.data(), dataChunk.size());
 }
 
-/// relatively safe behaviour
+/// relatively safe behavior (old realization)
 bool UPKUtils::MoveExportData(uint32_t idx, uint32_t newObjectSize)
 {
     if (idx < 1 || idx >= ExportTable.size())
@@ -132,19 +133,17 @@ bool UPKUtils::UndoMoveExportData(uint32_t idx)
     return true;
 }
 
-bool UPKUtils::MoveResizeObject(uint32_t idx, int newObjectSize, int resizeAt)
+std::vector<char> UPKUtils::GetResizedDataChunk(uint32_t idx, int newObjectSize, int resizeAt)
 {
+    std::vector<char> data;
     if (idx < 1 || idx >= ExportTable.size())
-        return false;
-    std::vector<char> data = GetExportData(idx);
-    UPKFile.seekg(0, std::ios::end);
-    uint32_t newObjectOffset = UPKFile.tellg();
+        return data;
+    /// get export object serial data
+    data = GetExportData(idx);
     /// if object needs resizing
     if (newObjectSize > 0 && (unsigned)newObjectSize != data.size())
     {
-        UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*8);
-        UPKFile.write(reinterpret_cast<char*>(&newObjectSize), sizeof(newObjectSize));
-        /// if resizing occurs at the middle of an object
+        /// if resizing occurs in the middle of an object
         if (resizeAt > 0 && resizeAt < newObjectSize)
         {
             int diff = newObjectSize - data.size();
@@ -162,8 +161,28 @@ bool UPKUtils::MoveResizeObject(uint32_t idx, int newObjectSize, int resizeAt)
             data.resize(newObjectSize, 0);
         }
     }
+    return data;
+}
+
+bool UPKUtils::MoveResizeObject(uint32_t idx, int newObjectSize, int resizeAt)
+{
+    if (idx < 1 || idx >= ExportTable.size())
+        return false;
+    std::vector<char> data = GetResizedDataChunk(idx, newObjectSize, resizeAt);
+    /// move write pointer to the end of file
+    UPKFile.seekg(0, std::ios::end);
+    uint32_t newObjectOffset = UPKFile.tellg();
+    /// if object needs resizing
+    if (ExportTable[idx].SerialSize != data.size())
+    {
+        /// write new SerialSize to ExportTable entry
+        UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*8);
+        UPKFile.write(reinterpret_cast<char*>(&newObjectSize), sizeof(newObjectSize));
+    }
+    /// write new SerialOffset to ExportTable entry
     UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*9);
     UPKFile.write(reinterpret_cast<char*>(&newObjectOffset), sizeof(newObjectOffset));
+    /// write new SerialData
     if (data.size() > 0)
     {
         UPKFile.seekp(newObjectOffset);
@@ -393,6 +412,64 @@ size_t UPKUtils::GetScriptRelOffset(uint32_t idx)
     size_t ScriptRelOffset = St->GetScriptOffset() - ExportTable[idx].SerialOffset;
     delete Obj;
     return ScriptRelOffset;
+}
+
+bool UPKUtils::ResizeInPlace(uint32_t idx, int newObjectSize, int resizeAt)
+{
+    if (!UPKFile.good())
+    {
+        return false;
+    }
+    if (idx < 1 || idx >= ExportTable.size())
+        return false;
+    std::vector<char> data = GetResizedDataChunk(idx, newObjectSize, resizeAt);
+    int diffSize = data.size() - ExportTable[idx].SerialSize;
+    /// increase offsets
+    for (unsigned i = 1; i <= Summary.ExportCount; ++i)
+    {
+        if (i != idx && ExportTable[i].SerialOffset > ExportTable[idx].SerialOffset)
+        {
+            ExportTable[i].SerialOffset += diffSize;
+        }
+    }
+    /// backup serialized export data into memory
+    UPKFile.clear();
+    UPKFile.seekg(Summary.SerialOffset);
+    std::vector<char> serializedDataBeforeIdx(ExportTable[idx].SerialOffset - UPKFile.tellg());
+    if (serializedDataBeforeIdx.size() > 0)
+    {
+        UPKFile.read(serializedDataBeforeIdx.data(), serializedDataBeforeIdx.size());
+    }
+    UPKFile.seekg(ExportTable[idx].SerialOffset + ExportTable[idx].SerialSize);
+    std::vector<char> serializedDataAfterIdx(UPKFileSize - UPKFile.tellg());
+    if (serializedDataAfterIdx.size() > 0)
+    {
+        UPKFile.read(serializedDataAfterIdx.data(), serializedDataAfterIdx.size());
+    }
+    /// save new serial size
+    ExportTable[idx].SerialSize = newObjectSize;
+    /// serialize header
+    std::vector<char> serializedHeader = SerializeHeader();
+    /// rewrite package
+    UPKFile.close();
+    UPKFile.open(UPKFileName.c_str(), std::ios::binary | std::ios::out | std::ios::trunc);
+    /// write serialized header
+    UPKFile.write(serializedHeader.data(), serializedHeader.size());
+    /// write serialized export data before resized object
+    if (serializedDataBeforeIdx.size() > 0)
+    {
+        UPKFile.write(serializedDataBeforeIdx.data(), serializedDataBeforeIdx.size());
+    }
+    /// write resized export object data
+    UPKFile.write(data.data(), data.size());
+    /// write serialized export data after resized object
+    if (serializedDataAfterIdx.size() > 0)
+    {
+        UPKFile.write(serializedDataAfterIdx.data(), serializedDataAfterIdx.size());
+    }
+    /// reload package
+    UPKUtils::Read(UPKFileName.c_str());
+    return true;
 }
 
 bool UPKUtils::AddNameEntry(FNameEntry Entry)

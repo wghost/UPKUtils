@@ -33,9 +33,6 @@ public:
     /// execute script
     bool ExecuteStack();
     /// state
-    //std::string GetErrors() { return ErrorMessages.str(); }
-    //std::string GetResults() { return ExecutionResults.str(); }
-    //std::string GetBackupScript() { return BackupScript.str(); }
     std::string GetBackupScript();
     bool IsGood() { return ScriptState.Good; }
 protected:
@@ -70,9 +67,8 @@ protected:
         bool Good;
         bool BeforeUsed;
         unsigned BeforeMemSize;
-        bool isInsideScript;
     } ScriptState;
-    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.MaxOffset = 0; ScriptState.Behavior = "KEEP"; ScriptState.BeforeUsed = false; ScriptState.BeforeMemSize = 0; ScriptState.isInsideScript = false; }
+    void ResetScope() { ScriptState.Scope = UPKScope::Package; ScriptState.ObjIdx = 0; ScriptState.Offset = 0; ScriptState.RelOffset = 0; ScriptState.MaxOffset = 0; ScriptState.Behavior = "KEEP"; ScriptState.BeforeUsed = false; ScriptState.BeforeMemSize = 0; }
     bool SetBad() { return (ScriptState.Good = false); }
     bool SetGood() { return (ScriptState.Good = true); }
     void AddUPKName(std::string upkname);
@@ -88,6 +84,7 @@ protected:
     bool SetImportEntry(const std::string& Param);
     bool SetExportEntry(const std::string& Param);
     bool SetRelOffset(const std::string& Param);
+    bool ResizeExportObject(const std::string& Param);
     bool WriteModdedHEX(const std::string& Param);
     bool WriteModdedCode(const std::string& Param);
     bool WriteReplacementCode(const std::string& Param);
@@ -117,13 +114,19 @@ protected:
     bool WriteAddImportEntry(const std::string& Param);
     bool WriteAddExportEntry(const std::string& Param);
     /// helpers
-    bool SetDataOffset(const std::string& Param, bool isEnd, bool isBeforeData);
-    bool CheckMoveResize(size_t DataSize);
-    bool MoveResizeAtRelOffset(int ObjSize);
-    bool WriteBinaryData(const std::vector<char>& DataChunk);
-    bool IsInsideScope(size_t DataSize = 1);
-    size_t GetDiff(size_t DataSize);
     bool CheckBehavior();
+    bool IsInsideScope(size_t DataSize = 1);
+    bool SetDataOffset(const std::string& Param, bool isEnd, bool isBeforeData);
+    bool CheckMoveResize(size_t DataSize, bool FitScope = false);
+    bool DoResize(int ObjSize);
+    bool MoveResizeAtRelOffset(int ObjSize);
+    bool ResizeInPlace(int ObjSize);
+    bool WriteBinaryData(const std::vector<char>& DataChunk);
+    bool WriteModdedData(const std::vector<char>& DataChunk, bool FitScope = false);
+    bool WriteAfterData(const std::string& DataBlock, int MemSize = -1);
+    bool GetAdjustedSizes(std::vector<char>& SizesChunk, size_t& SizesRelOffset, int DataSize, int NewMemSize = -1);
+    size_t GetDiff(size_t DataSize);
+    void ResetMaxOffset();
     /// parse script
     std::string ParseScript(std::string ScriptData, unsigned* ScriptMemSizeRef = nullptr);
     bool IsHEX(std::string word);

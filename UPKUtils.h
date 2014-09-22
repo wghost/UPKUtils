@@ -28,6 +28,8 @@ public:
     /// Move/resize export object data (new functions)
     /// You cannot resize object without moving it first
     /// You can move object without resizing it
+    std::vector<char> GetResizedDataChunk(uint32_t idx, int newObjectSize = -1, int resizeAt = -1);
+    bool ResizeInPlace(uint32_t idx, int newObjectSize = -1, int resizeAt = -1);
     bool MoveResizeObject(uint32_t idx, int newObjectSize = -1, int resizeAt = -1);
     bool UndoMoveResizeObject(uint32_t idx);
     /// Deserialize
@@ -52,6 +54,7 @@ public:
     bool ResizeInPlace(UObjectReference ObjRef, uint32_t newObjectSize);
     */
 private:
+    std::string UPKFileName;
     std::fstream UPKFile;
     size_t UPKFileSize;
 };
