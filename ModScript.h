@@ -56,6 +56,12 @@ protected:
     void SetExecutors(); /// map names to keys/sections and functions
     struct
     {
+        bool UpdateRelOffset;
+        bool IsUninstallAllowed;
+    } ScriptFlags;
+    void ResetScriptFlags() { ScriptFlags.UpdateRelOffset = false; ScriptFlags.IsUninstallAllowed = true; }
+    struct
+    {
         std::string UPKName;
         UPKUtils Package;
         UPKScope Scope;
@@ -73,6 +79,8 @@ protected:
     bool SetGood() { return (ScriptState.Good = true); }
     void AddUPKName(std::string upkname);
     /// methods to implement mod file commands
+    bool SetUpdateRelOffset(const std::string& Param);
+    bool SetUninstallAllowed(const std::string& Param);
     bool FormatModName(const std::string& Param);
     bool FormatAuthor(const std::string& Param);
     bool FormatDescription(const std::string& Param);
@@ -85,6 +93,8 @@ protected:
     bool SetExportEntry(const std::string& Param);
     bool SetRelOffset(const std::string& Param);
     bool ResizeExportObject(const std::string& Param);
+    bool WriteBulkData(const std::string& Param);
+    bool WriteBulkFile(const std::string& Param);
     bool WriteModdedHEX(const std::string& Param);
     bool WriteModdedCode(const std::string& Param);
     bool WriteReplacementCode(const std::string& Param);

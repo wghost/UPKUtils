@@ -294,6 +294,17 @@ bool UPKUtils::WriteData(size_t offset, std::vector<char> data, std::vector<char
     return true;
 }
 
+std::vector<char> UPKUtils::GetBulkData(size_t offset, std::vector<char> data)
+{
+    UBulkDataMirror DataMirror;
+    DataMirror.SetBulkData(data);
+    DataMirror.SetFileOffset(offset + DataMirror.GetBulkDataRelOffset());
+    std::string mirrorStr = DataMirror.Serialize();
+    std::vector<char> mirrorVec(mirrorStr.size());
+    memcpy(mirrorVec.data(), mirrorStr.data(), mirrorStr.size());
+    return mirrorVec;
+}
+
 size_t UPKUtils::FindDataChunk(std::vector<char> data, size_t beg, size_t limit)
 {
     if (limit != 0 && (limit - beg + 1 < data.size() || limit < beg))

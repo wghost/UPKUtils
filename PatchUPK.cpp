@@ -55,7 +55,9 @@ int main(int argN, char* argV[])
 
     bool ExecResult = script.ExecuteStack();
 
-    if (string(argV[1]).find(".uninstall") == string::npos)
+    string backupScript = script.GetBackupScript();
+
+    if (string(argV[1]).find(".uninstall") == string::npos && backupScript != "")
     {
         unsigned i = 0;
         string nextName = "";
@@ -74,7 +76,7 @@ int main(int argN, char* argV[])
         uninstFile << "MOD_NAME=" << argV[1] << " uninstall script\n"
                    << "AUTHOR=PatchUPK\n"
                    << "DESCRIPTION=This is automatically generated uninstall script. Do not change anything!\n\n"
-                   << script.GetBackupScript() << "\n{ backup script end }\n";
+                   << backupScript << "\n{ backup script end }\n";
         cout << "Uninstall script saved to " << nextName << endl;
     }
 

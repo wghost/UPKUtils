@@ -43,6 +43,7 @@ public:
     bool WriteNameTableName(uint32_t idx, std::string name);
     bool WriteData(size_t offset, std::vector<char> data, std::vector<char> *backupData = nullptr);
     size_t FindDataChunk(std::vector<char> data, size_t beg = 0, size_t limit = 0);
+    std::vector<char> GetBulkData(size_t offset, std::vector<char> data);
     /// UPK serialization
     std::vector<char> SerializeHeader();
     /// Aggressive patching functions

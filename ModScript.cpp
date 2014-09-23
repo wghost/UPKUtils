@@ -16,6 +16,11 @@ void ModScript::SetExecutors()
     Parser.AddKeyName("AUTHOR");
     Executors.insert({"DESCRIPTION", &ModScript::FormatDescription});
     Parser.AddKeyName("DESCRIPTION");
+    /// Patcher keys
+    Executors.insert({"UPDATE_REL", &ModScript::SetUpdateRelOffset});
+    Parser.AddKeyName("UPDATE_REL");
+    Executors.insert({"UNINSTALL", &ModScript::SetUninstallAllowed});
+    Parser.AddKeyName("UNINSTALL");
     /// Package keys
     Executors.insert({"UPK_FILE", &ModScript::OpenPackage});
     Parser.AddKeyName("UPK_FILE");
@@ -46,6 +51,10 @@ void ModScript::SetExecutors()
     Executors.insert({"RESIZE", &ModScript::ResizeExportObject});
     Parser.AddKeyName("RESIZE");
     /// Actual writing
+    Executors.insert({"BULK_DATA", &ModScript::WriteBulkData});
+    Parser.AddKeyName("BULK_DATA");
+    Executors.insert({"BULK_FILE", &ModScript::WriteBulkFile});
+    Parser.AddKeyName("BULK_FILE");
     Executors.insert({"MODDED_HEX", &ModScript::WriteModdedHEX});   /// key - new style
     Parser.AddKeyName("MODDED_HEX");
     Executors.insert({"MODDED_CODE", &ModScript::WriteModdedCode});
@@ -189,6 +198,7 @@ bool ModScript::Parse(const char* filename)
     Parser.SetCommentMarkers('{', '}', 0);
     /// begin parsing mod file
     ExecutionStack.clear();
+    ResetScriptFlags();
     ResetScope();
     int idx = Parser.FindNext();
     if (idx == -1)
@@ -226,6 +236,52 @@ bool ModScript::ExecuteStack()
             return SetBad();
         }
     }
+    return SetGood();
+}
+
+/********************************************************************
+************************** patcher keys *****************************
+*********************************************************************/
+
+bool ModScript::SetUpdateRelOffset(const std::string& Param)
+{
+    std::string val = GetStringValue(Param);
+    if (val == "TRUE")
+    {
+        ScriptFlags.UpdateRelOffset = true;
+    }
+    else if (val == "FALSE")
+    {
+        ScriptFlags.UpdateRelOffset = false;
+    }
+    else
+    {
+        *ErrorMessages << "Bad key value: " << Param << std::endl;
+        return SetBad();
+    }
+    *ExecutionResults << "Allow relative offsets updating after each write operation: "
+                      << Param << std::endl;
+    return SetGood();
+}
+
+bool ModScript::SetUninstallAllowed(const std::string& Param)
+{
+    std::string val = GetStringValue(Param);
+    if (val == "TRUE")
+    {
+        ScriptFlags.IsUninstallAllowed = true;
+    }
+    else if (val == "FALSE")
+    {
+        ScriptFlags.IsUninstallAllowed = false;
+    }
+    else
+    {
+        *ErrorMessages << "Bad key value: " << Param << std::endl;
+        return SetBad();
+    }
+    *ExecutionResults << "Allow uninstall data to be saved: "
+                      << Param << std::endl;
     return SetGood();
 }
 
@@ -657,10 +713,13 @@ bool ModScript::MoveResizeAtRelOffset(int ObjSize)
     ScriptState.Offset = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialOffset;
     ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
     /// backup info
-    std::ostringstream ss;
-    ss << "EXPAND_UNDO=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
-    ss << BackupScript[ScriptState.UPKName];
-    BackupScript[ScriptState.UPKName] = ss.str();
+    if (ScriptFlags.IsUninstallAllowed)
+    {
+        std::ostringstream ss;
+        ss << "EXPAND_UNDO=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+        ss << BackupScript[ScriptState.UPKName];
+        BackupScript[ScriptState.UPKName] = ss.str();
+    }
     return SetGood();
 }
 
@@ -678,12 +737,15 @@ bool ModScript::ResizeInPlace(int ObjSize)
     ScriptState.Offset = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialOffset;
     ScriptState.MaxOffset = ScriptState.Offset + ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize - 1;
     /// backup info
-    std::ostringstream ss;
-    ss << "OBJECT=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << ":INPL" << "\n\n";
-    ss << "RESIZE=" << oldSize << "\n\n";
-    ss << "[MODDED_HEX]\n" << MakeTextBlock(oldData.data(), oldData.size()) << "\n\n";
-    ss << BackupScript[ScriptState.UPKName];
-    BackupScript[ScriptState.UPKName] = ss.str();
+    if (ScriptFlags.IsUninstallAllowed)
+    {
+        std::ostringstream ss;
+        ss << "OBJECT=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << ":INPL" << "\n\n";
+        ss << "RESIZE=" << oldSize << "\n\n";
+        ss << "[MODDED_HEX]\n" << MakeTextBlock(oldData.data(), oldData.size()) << "\n\n";
+        ss << BackupScript[ScriptState.UPKName];
+        BackupScript[ScriptState.UPKName] = ss.str();
+    }
     return SetGood();
 }
 
@@ -704,32 +766,45 @@ bool ModScript::WriteBinaryData(const std::vector<char>& DataChunk)
     }
     *ExecutionResults << "Write successful!" << std::endl;
     /// backup info
-    std::ostringstream ss;
-    switch (ScriptState.Scope)
+    if (ScriptFlags.IsUninstallAllowed)
     {
-        case UPKScope::Object:
-            ss << "OBJECT=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
-            break;
-        case UPKScope::Import:
-            ss << "IMPORT_ENTRY=" << ScriptState.Package.GetImportEntry(ScriptState.ObjIdx).FullName << "\n\n";
-            break;
-        case UPKScope::Export:
-            ss << "EXPORT_ENTRY=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
-            break;
-        case UPKScope::Name:
-            ss << "NAME_ENTRY=" << ScriptState.Package.GetNameEntry(ScriptState.ObjIdx).Name << "\n\n";
-            break;
-        default:
-            ss << "OFFSET=" << ScriptState.Offset << "\n\n";
-            break;
+        std::ostringstream ss;
+        switch (ScriptState.Scope)
+        {
+            case UPKScope::Object:
+                ss << "OBJECT=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+                break;
+            case UPKScope::Import:
+                ss << "IMPORT_ENTRY=" << ScriptState.Package.GetImportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+                break;
+            case UPKScope::Export:
+                ss << "EXPORT_ENTRY=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+                break;
+            case UPKScope::Name:
+                ss << "NAME_ENTRY=" << ScriptState.Package.GetNameEntry(ScriptState.ObjIdx).Name << "\n\n";
+                break;
+            default:
+                ss << "OFFSET=" << ScriptState.Offset << "\n\n";
+                break;
+        }
+        if (ScriptState.RelOffset > 0)
+        {
+            ss << "REL_OFFSET=" << ScriptState.RelOffset << "\n\n";
+        }
+        ss << "[MODDED_HEX]\n" << MakeTextBlock(BackupData.data(), BackupData.size()) << "\n\n";
+        ss << BackupScript[ScriptState.UPKName];
+        BackupScript[ScriptState.UPKName] = ss.str();
     }
-    if (ScriptState.RelOffset > 0)
+    /// if rel offset updating is on
+    if (ScriptFlags.UpdateRelOffset)
     {
-        ss << "REL_OFFSET=" << ScriptState.RelOffset << "\n\n";
+        /// if next byte is still inside object scope or resize/move is allowed
+        if (IsInsideScope(DataChunk.size() + 1) || ScriptState.Behavior != "KEEP")
+        {
+            uint32_t CurRelOffset = ScriptState.RelOffset + DataChunk.size();
+            ScriptState.RelOffset = CurRelOffset;
+        }
     }
-    ss << "[MODDED_HEX]\n" << MakeTextBlock(BackupData.data(), BackupData.size()) << "\n\n";
-    ss << BackupScript[ScriptState.UPKName];
-    BackupScript[ScriptState.UPKName] = ss.str();
     return SetGood();
 }
 
@@ -822,6 +897,75 @@ bool ModScript::ResizeExportObject(const std::string& Param)
         ScriptState.RelOffset = resizeAt;
     }
     return CheckMoveResize(newSize, true);
+}
+
+bool ModScript::WriteBulkData(const std::string& Param)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    if (ScriptState.Scope != UPKScope::Object)
+    {
+        *ErrorMessages << "Bulk data can only be saved to export object!\n";
+        return SetBad();
+    }
+    std::vector<char> DataChunk = GetDataChunk(Param);
+    *ExecutionResults << "Bulk data size = " << DataChunk.size() << std::endl;
+    std::vector<char> BulkData = ScriptState.Package.GetBulkData(ScriptState.Offset + ScriptState.RelOffset, DataChunk);
+    /// temporarily set ScriptState.Behavior to KEEP to avoid resizing!
+    std::string SavedBehavior = ScriptState.Behavior;
+    *ExecutionResults << "Temporarily resetting object behavior to KEEP!\n";
+    ScriptState.Behavior = "KEEP";
+    /// write bulk data
+    if (!WriteModdedData(BulkData))
+        return SetBad();
+    /// restore behavior
+    ScriptState.Behavior = SavedBehavior;
+    return SetGood();
+}
+
+bool ModScript::WriteBulkFile(const std::string& Param)
+{
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
+    if (ScriptState.Scope != UPKScope::Object)
+    {
+        *ErrorMessages << "Bulk data can only be saved to export object!\n";
+        return SetBad();
+    }
+    std::string BulkFile = GetStringValue(Param);
+    std::ifstream inFile(BulkFile, std::ios::binary | std::ios::ate);
+    if (!inFile)
+    {
+        *ErrorMessages << "Can't open bulk file: " << BulkFile << std::endl;
+        return SetBad();
+    }
+    unsigned BulkSize = inFile.tellg();
+    if (BulkSize < 1)
+    {
+        *ErrorMessages << "Bad bulk data in file " << BulkFile << std::endl;
+        return SetBad();
+    }
+    *ExecutionResults << "Bulk data size = " << BulkSize << std::endl;
+    std::vector<char> DataChunk(BulkSize);
+    inFile.seekg(0);
+    inFile.read(DataChunk.data(), DataChunk.size());
+    std::vector<char> BulkData = ScriptState.Package.GetBulkData(ScriptState.Offset + ScriptState.RelOffset, DataChunk);
+    /// temporarily set ScriptState.Behavior to KEEP to avoid resizing!
+    std::string SavedBehavior = ScriptState.Behavior;
+    *ExecutionResults << "Temporarily resetting object behavior to KEEP!\n";
+    ScriptState.Behavior = "KEEP";
+    /// write bulk data
+    if (!WriteModdedData(BulkData))
+        return SetBad();
+    /// restore behavior
+    ScriptState.Behavior = SavedBehavior;
+    return SetGood();
 }
 
 bool ModScript::WriteModdedHEX(const std::string& Param)
@@ -1237,12 +1381,17 @@ bool ModScript::WriteAfterData(const std::string& DataBlock, int MemSize)
     /// writing data
     if (!WriteModdedData(DataChunk, true))
         return SetBad();
+    /// save rel offset
+    size_t SavedRelOffset = ScriptState.RelOffset;
     /// write new sizes
     if (needAdjustSizes)
     {
         ScriptState.RelOffset = SizesRelOffset;
-        return WriteModdedData(SizesChunk);
+        if (!WriteModdedData(SizesChunk))
+            return SetBad();
     }
+    /// restore rel offset
+    ScriptState.RelOffset = SavedRelOffset;
     return SetGood();
 }
 
@@ -1321,10 +1470,13 @@ bool ModScript::WriteMoveExpandLegacy(const std::string& Param)
     }
     *ExecutionResults << "Function moved/expanded successfully!\n";
     /// backup info
-    std::ostringstream ss;
-    ss << "EXPAND_UNDO=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
-    ss << BackupScript[ScriptState.UPKName];
-    BackupScript[ScriptState.UPKName] = ss.str();
+    if (ScriptFlags.IsUninstallAllowed)
+    {
+        std::ostringstream ss;
+        ss << "EXPAND_UNDO=" << ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).FullName << "\n\n";
+        ss << BackupScript[ScriptState.UPKName];
+        BackupScript[ScriptState.UPKName] = ss.str();
+    }
     /// set new offset value
     ScriptState.Offset = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialOffset;
     ScriptState.RelOffset = 0;
@@ -1350,8 +1502,11 @@ std::string ModScript::GetBackupScript()
     std::ostringstream ss;
     for (unsigned i = 0; i < UPKNames.size(); ++i)
     {
-        ss << "UPK_FILE=" << UPKNames[i] << "\n\n"
-           << BackupScript[UPKNames[i]] << "\n\n";
+        if (BackupScript[UPKNames[i]] != "")
+        {
+            ss << "UPK_FILE=" << UPKNames[i] << "\n\n"
+            << BackupScript[UPKNames[i]] << "\n\n";
+        }
     }
     return ss.str();
 }
@@ -1400,10 +1555,13 @@ bool ModScript::WriteRename(const std::string& Param)
     }
     *ExecutionResults << "Renamed successfully!\n";
     /// backup info
-    std::ostringstream ss;
-    ss << "RENAME=" << NewName << ":" << ObjName << "\n\n";
-    ss << BackupScript[ScriptState.UPKName];
-    BackupScript[ScriptState.UPKName] = ss.str();
+    if (ScriptFlags.IsUninstallAllowed)
+    {
+        std::ostringstream ss;
+        ss << "RENAME=" << NewName << ":" << ObjName << "\n\n";
+        ss << BackupScript[ScriptState.UPKName];
+        BackupScript[ScriptState.UPKName] = ss.str();
+    }
     return SetGood();
 }
 

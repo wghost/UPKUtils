@@ -41,6 +41,23 @@ enum class GlobalType
 	UMapProperty = 27
 };
 
+class UBulkDataMirror
+{
+public:
+    UBulkDataMirror(): SavedBulkDataFlags(0), SavedElementCount(0), SavedBulkDataSizeOnDisk(0), SavedBulkDataOffsetInFile(0) {}
+    void SetBulkData(std::vector<char> Data);
+    void SetFileOffset(size_t offset) { SavedBulkDataOffsetInFile = offset; }
+    std::string Serialize();
+    size_t GetBulkDataRelOffset() { return 16; }
+protected:
+    /// persistent
+    uint32_t SavedBulkDataFlags;
+    uint32_t SavedElementCount;
+    uint32_t SavedBulkDataSizeOnDisk;
+    uint32_t SavedBulkDataOffsetInFile;
+    std::vector<char> BulkData;
+};
+
 class UDefaultProperty
 {
 public:

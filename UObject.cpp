@@ -2,6 +2,29 @@
 
 #include <sstream>
 
+void UBulkDataMirror::SetBulkData(std::vector<char> Data)
+{
+    BulkData = Data;
+    SavedBulkDataFlags = 0;
+    /// temporarily, until we know the exact meaning of this
+    SavedElementCount = SavedBulkDataSizeOnDisk = BulkData.size();
+    SavedBulkDataOffsetInFile = 0;
+}
+
+std::string UBulkDataMirror::Serialize()
+{
+    std::stringstream ss;
+    ss.write(reinterpret_cast<char*>(&SavedBulkDataFlags), 4);
+    ss.write(reinterpret_cast<char*>(&SavedElementCount), 4);
+    ss.write(reinterpret_cast<char*>(&SavedBulkDataSizeOnDisk), 4);
+    ss.write(reinterpret_cast<char*>(&SavedBulkDataOffsetInFile), 4);
+    if (BulkData.size() > 0)
+    {
+        ss.write(BulkData.data(), BulkData.size());
+    }
+    return ss.str();
+}
+
 std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe, bool quick)
 {
     std::ostringstream ss;
