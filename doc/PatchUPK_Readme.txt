@@ -7,56 +7,9 @@ PatchUPK is a Windows console utility to patch XCOM packages (upk files). Packag
 
 PatchUPK operates on special script files and applies subsequent changes to packages.
 
-Version 5.3, 09/06/2014
+Version 6.0, 10/01/2014
 
 Wasteland Ghost aka wghost81 (wghost81@gmail.com).
-
------------------------------------------------------------------------------------------------------------------
-    Changelist:
------------------------------------------------------------------------------------------------------------------
-
-09/06/2014:
-    - fixed bug with resizing State objects.
-
-09/05/2014:
-    - fixed bug with linking new export entries.
-
-07/30/2014:
-    - fixed bug with global FIND_HEX usage.
-    - '<' and '>' symbols in text strings (pseudo-code) are now allowed, "> combination with any white-spaces in
-      between is still disallowed inside a string (for the sake of backward compatibility).
-    - uninstall script now uses object-oriented approach instead of global offset to ensure compatibility with
-      new objects (for future mods).
-
-04/24/2014:
-    - white-spaces handling improved.
-    - text constant code added (see using pseudo-code section).
-    - added commands for adding new name, import and export entries. WARNING! Highly experimental!!!
-
-04/07/2014:
-    - <NullRef> pseudo code added for generating null object reference (0x00000000) with 4 serial and 8 memory
-      size.
-    - WARNING! Changed behavior of FIND_HEX/FIND_CODE and BEFORE/AFTER_HEX/CODE! See below for details.
-
-03/31/2014:
-    - member variable marker added (see script commands for detailed info).
-    - ALIAS key added (see script commands for detailed info).
-    - FIND_HEX/FIND_CODE sections added.
-
-03/18/2014:
-    - CODE keys and sections added (see script commands for detailed info).
-
-02/19/2014:
-    - C-style comments support added:
-        /* comment */
-        // comment
-    - FIND_HEX operation now sets temporary scope, which limits the next write operation to FIND_HEX boundaries.
-      This allows to auto-expand object (if AUTO or MOVE specifier is set) to fit in replacement data (specified
-      by MODDED_HEX or AFTER_HEX). Also applies to BEFORE_HEX/AFTER_HEX.
-    - MODDED_FILE is now considered a total replacement for current scope: i.e. it should contain full object
-      data. Is also required now to use Full.Object.Name.ext pattern for file name, as program will auto-set
-      scope, based on file name.
-    - EXPAND_FUNCTION key now sets current scope to specified object.
 
 -----------------------------------------------------------------------------------------------------------------
     Script commands basics
@@ -75,6 +28,20 @@ You may use comments anywhere in the mod file. Examples:
    comment */
 // Line comment
 { Curly brackets comment }
+
+-----------------------------------------------------------------------------------------------------------------
+    Controlling patcher behavior
+-----------------------------------------------------------------------------------------------------------------
+
+There are currently two keys to modify Patcher behavior.
+
+UNINSTALL key is used to switch uninstall feature on and off: UNINSTALL=FALSE will switch uninstall feature off
+and UNINSTALL=TRUE will switch it back on. By default uninstall feature is on. You can use this key in the middle
+of the file to select what parts of your mod can be uninstalled safely and what parts can not.
+
+UPDATE_REL key allows to switch relative offset auto-update on and off. Default behavior is off. UPDATE_REL=TRUE
+forces Patcher to update relative offset after each write operation. UPDATE_REL=FALSE tells Patcher to keep
+relative offset intact.
 
 -----------------------------------------------------------------------------------------------------------------
     Optional keys
@@ -243,7 +210,7 @@ You may use [/MODDED_HEX] to visually mark section end, but it is purely optiona
     Find-and-replace (FNR) style patching (UPKModder compatibility)
 -----------------------------------------------------------------------------------------------------------------
 
-Since v.3.2 BEFORE_HEX and AFTER_HER are considered a unique commands and behave similar to those of UPKModder.
+Since v.3.2 BEFORE_HEX and AFTER_HEX are considered a unique commands and behave similar to those of UPKModder.
 
 [BEFORE_HEX] (with optional [/BEFORE_HEX]) will set current scope to search string.
 
@@ -259,6 +226,26 @@ serial and memory sizes).
 
 If FNR operation is performed within global scope or name/import/export tables, it will require AFTER_HEX data
 length to match with BEFORE_HEX data length.
+
+See "Using pseudo-code" section for BEFORE_CODE/AFTER_CODE combination, which can auto-update both serial and
+memory sizes.
+
+REPLACE_HEX/REPLACE_CODE keys are used to batch-replace specified data. They perform subsequent BEFORE/AFTER
+patching inside current scope, until all the blocks of before data are found and replaced.
+
+Example:
+REPLACE_CODE=<.LocalVarA>:<.LocalVarB>
+
+-----------------------------------------------------------------------------------------------------------------
+    Writing bulk data
+-----------------------------------------------------------------------------------------------------------------
+
+BULK_DATA/BULK_FILE keys allow to write BulkDataMirror objects, which use absolute file offsets to mark raw data
+file position. BulkDataMirror objects are used to store textures and sounds inside cooked packages.
+
+Examples:
+BULK_DATA=01 02 03 04
+BULK_FILE=path/to/binaryfile.ext
 
 -----------------------------------------------------------------------------------------------------------------
     Using pseudo-code
