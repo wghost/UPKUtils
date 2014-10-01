@@ -51,6 +51,10 @@ void ModScript::SetExecutors()
     Executors.insert({"RESIZE", &ModScript::ResizeExportObject});
     Parser.AddKeyName("RESIZE");
     /// Actual writing
+    Executors.insert({"REPLACE_HEX", &ModScript::WriteReplaceAllHEX});
+    Parser.AddKeyName("REPLACE_HEX");
+    Executors.insert({"REPLACE_CODE", &ModScript::WriteReplaceAllCode});
+    Parser.AddKeyName("REPLACE_CODE");
     Executors.insert({"BULK_DATA", &ModScript::WriteBulkData});
     Parser.AddKeyName("BULK_DATA");
     Executors.insert({"BULK_FILE", &ModScript::WriteBulkFile});
@@ -1247,14 +1251,15 @@ bool ModScript::SetDataOffset(const std::string& Param, bool isEnd, bool isBefor
     }
     else
     {
-        size_t offset = ScriptState.Package.FindDataChunk(DataChunk, ScriptState.Offset, ScriptState.MaxOffset);
+        size_t startOffset = ScriptState.Offset + ScriptState.RelOffset;
+        size_t offset = ScriptState.Package.FindDataChunk(DataChunk, startOffset, ScriptState.MaxOffset);
         if (offset != 0)
         {
             if (isEnd) /// seek to the end of specified data
             {
                 offset += DataChunk.size();
             }
-            ScriptState.RelOffset = offset - ScriptState.Offset;
+            ScriptState.RelOffset = offset - startOffset;
             if (isBeforeData) /// restrict scope for BEFORE/AFTER patching
             {
                 ScriptState.MaxOffset = ScriptState.Offset + ScriptState.RelOffset + DataChunk.size() - 1;
@@ -1338,6 +1343,11 @@ bool ModScript::SetBeforeHEXOffset(const std::string& Param)
 
 bool ModScript::SetBeforeCodeOffset(const std::string& Param)
 {
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
     unsigned MemSize = 0;
     std::string ParsedParam = ParseScript(Param, &MemSize);
     ScriptState.BeforeMemSize = MemSize;
@@ -1351,9 +1361,63 @@ bool ModScript::WriteAfterHEX(const std::string& Param)
 
 bool ModScript::WriteAfterCode(const std::string& Param)
 {
+    if (ScriptState.Package.IsLoaded() == false)
+    {
+        *ErrorMessages << "Package is not opened!\n";
+        return SetBad();
+    }
     unsigned MemSize = 0;
     std::string ParsedParam = ParseScript(Param, &MemSize);
     return WriteAfterData(ParsedParam, MemSize);
+}
+
+bool ModScript::WriteReplaceAllHEX(const std::string& Param)
+{
+    return WriteReplaceAll(Param, false);
+}
+
+bool ModScript::WriteReplaceAllCode(const std::string& Param)
+{
+    return WriteReplaceAll(Param, true);
+}
+
+bool ModScript::WriteReplaceAll(const std::string& Param, bool isCode)
+{
+    std::string BeforeStr, AfterStr;
+    SplitAt(':', Param, BeforeStr, AfterStr);
+    if (BeforeStr.size() < 1 || AfterStr.size() < 1)
+    {
+        *ErrorMessages << "Invalid key parameter(s)!\n";
+        return SetBad();
+    }
+    size_t BeforeSize = GetDataChunk(BeforeStr).size();
+    size_t SavedRelOffset = ScriptState.RelOffset;
+    size_t RelOffset = SavedRelOffset;
+    size_t MaxRelOffset = ScriptState.MaxOffset - ScriptState.Offset;
+    while (RelOffset + BeforeSize <= MaxRelOffset)
+    {
+        ScriptState.RelOffset = RelOffset;
+        if (isCode)
+        {
+            if (!SetBeforeCodeOffset(BeforeStr))
+                break;
+            if (!WriteAfterCode(AfterStr))
+                return SetBad();
+        }
+        else
+        {
+            if (!SetBeforeHEXOffset(BeforeStr))
+                break;
+            if (!WriteAfterHEX(AfterStr))
+                return SetBad();
+        }
+        RelOffset += BeforeSize;
+    }
+    if (ScriptFlags.UpdateRelOffset != true)
+    {
+        ScriptState.RelOffset = SavedRelOffset;
+    }
+    return SetGood();
 }
 
 bool ModScript::WriteAfterData(const std::string& DataBlock, int MemSize)

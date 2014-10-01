@@ -93,6 +93,8 @@ protected:
     bool SetExportEntry(const std::string& Param);
     bool SetRelOffset(const std::string& Param);
     bool ResizeExportObject(const std::string& Param);
+    bool WriteReplaceAllHEX(const std::string& Param);
+    bool WriteReplaceAllCode(const std::string& Param);
     bool WriteBulkData(const std::string& Param);
     bool WriteBulkFile(const std::string& Param);
     bool WriteModdedHEX(const std::string& Param);
@@ -117,6 +119,7 @@ protected:
     bool WriteAfterHEX(const std::string& Param);
     bool SetBeforeCodeOffset(const std::string& Param);
     bool WriteAfterCode(const std::string& Param);
+    bool WriteReplaceAll(const std::string& Param, bool isCode);
     /// end-of-block indicators are just skipped, as they don't actually used
     bool Sink(const std::string& Param);
     /// adding new entries
