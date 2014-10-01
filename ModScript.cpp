@@ -1391,6 +1391,7 @@ bool ModScript::WriteReplaceAll(const std::string& Param, bool isCode)
         return SetBad();
     }
     size_t BeforeSize = GetDataChunk(BeforeStr).size();
+    size_t AfterSize = GetDataChunk(AfterStr).size();
     size_t SavedRelOffset = ScriptState.RelOffset;
     size_t RelOffset = SavedRelOffset;
     size_t MaxRelOffset = ScriptState.MaxOffset - ScriptState.Offset;
@@ -1411,7 +1412,10 @@ bool ModScript::WriteReplaceAll(const std::string& Param, bool isCode)
             if (!WriteAfterHEX(AfterStr))
                 return SetBad();
         }
-        RelOffset += BeforeSize;
+        /// because write operation can cause object resize AfterSize is used
+        /// and MaxRelOffset is re-calculated
+        RelOffset += AfterSize;
+        MaxRelOffset = ScriptState.MaxOffset - ScriptState.Offset;
     }
     if (ScriptFlags.UpdateRelOffset != true)
     {
