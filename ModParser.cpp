@@ -76,16 +76,6 @@ std::string GetStringValue(const std::string& TextBuffer)
         str = str.substr(str.find_first_not_of("\""));
         str = str.substr(0, str.find_last_not_of("\"") + 1);
     }
-    /*if (str.find("\"") != std::string::npos)
-    {
-        str = str.substr(str.find_first_not_of("\""));
-        str = str.substr(0, str.find_first_of("\""));
-    }
-    else
-    {
-        str = str.substr(str.find_first_not_of(" "));
-        str = str.substr(0, str.find_first_of(" "));
-    }*/
     return str;
 }
 
