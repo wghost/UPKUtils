@@ -182,6 +182,13 @@ std::string FormatUPKScope(UPKScope scope)
     }
 }
 
+void ModScript::SetUPKPath(const char* pathname)
+{
+    UPKPath = pathname;
+    if (UPKPath.length() < 1)
+        UPKPath = ".";
+}
+
 void ModScript::InitStreams(std::ostream& err, std::ostream& res)
 {
     ErrorMessages = &err;
@@ -339,7 +346,7 @@ bool ModScript::OpenPackage(const std::string& Param)
         return SetGood();
     }
     ScriptState.UPKName = UPKFileName;
-    std::string pathName = UPKPath + UPKFileName;
+    std::string pathName = UPKPath + "/" + UPKFileName;
     if (ScriptState.Package.Read(pathName.c_str()) == false)
     {
         *ErrorMessages << "Error reading package: " << pathName << std::endl;
@@ -351,11 +358,7 @@ bool ModScript::OpenPackage(const std::string& Param)
     }
     AddUPKName(ScriptState.UPKName);
     ResetScope();
-    *ExecutionResults << "Package file: " << UPKFileName;
-    if (UPKPath.length() > 0)
-    {
-        *ExecutionResults <<  " (" << pathName << ")";
-    }
+    *ExecutionResults << "Package file: " << pathName;
     *ExecutionResults << std::endl;
     if (GUIDs.count(UPKFileName) > 0)
     {
@@ -1259,7 +1262,7 @@ bool ModScript::SetDataOffset(const std::string& Param, bool isEnd, bool isBefor
             {
                 offset += DataChunk.size();
             }
-            ScriptState.RelOffset = offset - startOffset;
+            ScriptState.RelOffset = offset - ScriptState.Offset;
             if (isBeforeData) /// restrict scope for BEFORE/AFTER patching
             {
                 ScriptState.MaxOffset = ScriptState.Offset + ScriptState.RelOffset + DataChunk.size() - 1;

@@ -20,16 +20,16 @@ std::string FormatUPKScope(UPKScope scope);
 class ModScript
 {
 public:
-    ModScript(): UPKPath("") { InitStreams(); SetBad(); }
+    ModScript(): UPKPath(".") { InitStreams(); SetBad(); }
     ~ModScript() {};
-    ModScript(const char* filename): UPKPath("") { InitStreams(); Parse(filename); }
+    ModScript(const char* filename): UPKPath(".") { InitStreams(); Parse(filename); }
     ModScript(const char* filename, const char* pathname) { InitStreams(); Parse(filename); SetUPKPath(pathname); }
     /// Init stream objects
     void InitStreams(std::ostream& err = std::cerr, std::ostream& res = std::cout);
     /// parse mod file to build execution stack
     bool Parse(const char* filename);
     /// set path to upk files, referenced inside mod files
-    void SetUPKPath(const char* pathname) { UPKPath = pathname; }
+    void SetUPKPath(const char* pathname);
     /// execute script
     bool ExecuteStack();
     /// state

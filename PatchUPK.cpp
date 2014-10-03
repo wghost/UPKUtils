@@ -41,9 +41,6 @@ int main(int argN, char* argV[])
             cerr << "Incorrect package path!" << endl;
             return 1;
         }
-        // add trailing path separator to command line parameter
-        /*if (upkPath[upkPath.length() - 1] != '\\')
-            upkPath +=  "\\";*/
     }
 
     ModScript script(argV[1], upkPath.c_str());
