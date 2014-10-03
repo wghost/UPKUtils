@@ -4,7 +4,7 @@
 
 UPK Utils are a set of Windows console applications for analysing and patching uncompressed XCOM packages (.upk).
 
-Version 6.0, 10/01/2014
+Version 6.1, 10/03/2014
 
 Wasteland Ghost aka wghost81 (wghost81@gmail.com).
 

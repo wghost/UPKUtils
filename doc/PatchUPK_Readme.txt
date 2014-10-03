@@ -7,7 +7,7 @@ PatchUPK is a Windows console utility to patch XCOM packages (upk files). Packag
 
 PatchUPK operates on special script files and applies subsequent changes to packages.
 
-Version 6.0, 10/01/2014
+Version 6.1, 10/03/2014
 
 Wasteland Ghost aka wghost81 (wghost81@gmail.com).
 
@@ -94,10 +94,12 @@ Value of this key may be used with specifiers:
 OBJECT=XGStrategyAI.GetAltWeapon:KEEP
 OBJECT=XGStrategyAI.GetAltWeapon:MOVE
 OBJECT=XGStrategyAI.GetAltWeapon:AUTO
+OBJECT=XGStrategyAI.GetAltWeapon:INPL
 If specifier is empty, KEEP is assumed. KEEP provides a most safest behavior: write operations will be performed
 inside specified scope only. It means, if data chunk exceeds object's size, write operation will fail.
 MOVE specifier forces object data move before applying any changes.
 AUTO specifier allows program to auto-move/resize object when needed.
+INPL specifier works similar to AUTO, but resizes object in-place instead of moving it.
 Note that modifiers themselves do not make any changes: they work when you start to write actual data.
     
 -----------------------------------------------------------------------------------------------------------------
