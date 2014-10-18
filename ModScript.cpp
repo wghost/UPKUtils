@@ -664,10 +664,18 @@ bool ModScript::CheckMoveResize(size_t DataSize, bool FitScope)
         bool NeedMoveResize = false;
         size_t ObjSize = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize;
         size_t ScopeSize = ScriptState.MaxOffset - ScriptState.Offset - ScriptState.RelOffset + 1;
-        if (FitScope && ScopeSize != DataSize && ScriptState.Behavior != "KEEP")
+        if (FitScope && ScopeSize != DataSize)
         {
-            NeedMoveResize = true;
-            ObjSize += DataSize - ScopeSize;
+            if (ScriptState.Behavior != "KEEP")
+            {
+                NeedMoveResize = true;
+                ObjSize += DataSize - ScopeSize;
+            }
+            else
+            {
+                *ErrorMessages << "Data chunk too large for current scope!\n";
+                return SetBad();
+            }
         }
         else if (!IsInsideScope(DataSize) && ScriptState.Behavior != "KEEP")
         {
