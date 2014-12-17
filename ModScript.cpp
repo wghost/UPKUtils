@@ -659,11 +659,11 @@ size_t ModScript::GetDiff(size_t DataSize)
 
 bool ModScript::CheckMoveResize(size_t DataSize, bool FitScope)
 {
+    size_t ScopeSize = ScriptState.MaxOffset - ScriptState.Offset - ScriptState.RelOffset + 1;
     if (ScriptState.Scope == UPKScope::Object)
     {
         bool NeedMoveResize = false;
         size_t ObjSize = ScriptState.Package.GetExportEntry(ScriptState.ObjIdx).SerialSize;
-        size_t ScopeSize = ScriptState.MaxOffset - ScriptState.Offset - ScriptState.RelOffset + 1;
         if (FitScope && ScopeSize != DataSize)
         {
             if (ScriptState.Behavior != "KEEP")
@@ -673,7 +673,7 @@ bool ModScript::CheckMoveResize(size_t DataSize, bool FitScope)
             }
             else
             {
-                *ErrorMessages << "Data chunk too large for current scope!\n";
+                *ErrorMessages << "Data chunk does not fit current scope!\n";
                 return SetBad();
             }
         }
@@ -690,6 +690,11 @@ bool ModScript::CheckMoveResize(size_t DataSize, bool FitScope)
         {
             return DoResize(ObjSize);
         }
+    }
+    else if (FitScope && ScopeSize != DataSize)
+    {
+        *ErrorMessages << "Data chunk does not fit current scope!\n";
+        return SetBad();
     }
     if (!IsInsideScope(DataSize))
     {
