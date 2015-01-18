@@ -151,7 +151,7 @@ std::string ModParser::GetText()
             line = GetLine();
             if (FindKey(line) != -1 || FindSection(line) != -1)
             {
-                modFile.clear(std::ios::eofbit); /// to parse last line correctly
+                modFile.clear(0); /// to parse last line correctly
                 break;
             }
             str += std::string("\n") + line;
@@ -165,7 +165,7 @@ std::string ModParser::GetText()
             line = GetLine();
             if (FindKey(line) != -1 || FindSection(line) != -1)
             {
-                modFile.clear(std::ios::eofbit); /// to parse last line correctly
+                modFile.clear(0); /// to parse last line correctly
                 break;
             }
             if (str != "") str += "\n";
@@ -264,7 +264,7 @@ int ModParser::FindNext()
         keyIdx = FindKey(line);
         sectionIdx = FindSection(line);
     }
-    modFile.clear(std::ios::eofbit); /// to get last line value correctly
+    modFile.clear(0); /// to get last line value correctly
     modFile.seekg(savedPos, std::ios::beg);
     isKey = (keyIdx != -1);
     isSection = (sectionIdx != -1);
