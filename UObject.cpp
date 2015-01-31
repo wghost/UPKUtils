@@ -371,6 +371,10 @@ std::string UDefaultProperty::GuessArrayType(std::string ArrName)
     {
         return "ObjectProperty";
     }
+    else if (ArrName.find("Name") != std::string::npos)
+    {
+        return "StringProperty";
+    }
     return "None";
 }
 
@@ -849,6 +853,31 @@ std::string UMapProperty::Deserialize(std::istream& stream, UPKInfo& info)
     ss << "\tKeyObjRef = " << FormatHEX((uint32_t)KeyObjRef) << " -> " << info.ObjRefToName(KeyObjRef) << std::endl;
     stream.read(reinterpret_cast<char*>(&ValueObjRef), sizeof(ValueObjRef));
     ss << "\tValueObjRef = " << FormatHEX((uint32_t)ValueObjRef) << " -> " << info.ObjRefToName(ValueObjRef) << std::endl;
+    return ss.str();
+}
+
+std::string ULevel::Deserialize(std::istream& stream, UPKInfo& info)
+{
+    std::ostringstream ss;
+    ss << UObject::Deserialize(stream, info);
+    uint32_t pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
+    ss << "Stream relative position (debug info): " << FormatHEX(pos) << " (" << pos << ")\n";
+    ss << "ULevel:\n";
+    ss << "Actors:\n";
+    for (int i = 0; ; ++i)
+    {
+        UObjectReference A;
+        stream.read(reinterpret_cast<char*>(&A), sizeof(A));
+        if (info.GetExportEntry(A).FullName.find("TheWorld.PersistentLevel") == std::string::npos && A != 0x0)
+        {
+            break;
+        }
+        Actors.push_back(A);
+        ss << "\t" << FormatHEX((char*)&A, sizeof(A)) << "\t//\t" << FormatHEX((uint32_t)A) << "\t//\t" << info.ObjRefToName(A) << std::endl;
+    }
+    pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
+    ss << "Stream relative position (debug info): " << FormatHEX(pos) << " (" << pos << ")\n";
+    ss << "Object unknown, can't deserialize!\n";
     return ss.str();
 }
 

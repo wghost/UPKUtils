@@ -110,6 +110,10 @@ GlobalType UObjectFactory::NameToType(std::string name)
     {
         return GlobalType::UTextBuffer;
     }
+	else if (name == "Level")
+    {
+        return GlobalType::ULevel;
+    }
     else
     {
         return GlobalType::UObjectUnknown;
@@ -226,6 +230,10 @@ UObject* UObjectFactory::Create(GlobalType Type)
 	else if (Type == GlobalType::UClass)
     {
         return new UClass;
+    }
+	else if (Type == GlobalType::ULevel)
+    {
+        return new ULevel;
     }
     else
     {

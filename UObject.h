@@ -38,7 +38,8 @@ enum class GlobalType
 	UComponentProperty = 24,
 	UDelegateProperty = 25,
 	UInterfaceProperty = 26,
-	UMapProperty = 27
+	UMapProperty = 27,
+	ULevel = 28
 };
 
 class UBulkDataMirror
@@ -453,6 +454,17 @@ protected:
     /// persistent
     UObjectReference KeyObjRef;
     UObjectReference ValueObjRef;
+};
+
+class ULevel: public UObject
+{
+public:
+    ULevel() { Type = GlobalType::ULevel; }
+    ~ULevel() {}
+    std::string Deserialize(std::istream& stream, UPKInfo& info);
+protected:
+    /// database
+    std::vector<UObjectReference> Actors;
 };
 
 class UObjectUnknown: public UObject
