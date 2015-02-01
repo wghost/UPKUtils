@@ -117,68 +117,71 @@ int main(int argN, char* argV[])
     }
     else
     {
-        uint32_t tag = 0;
-        inFile.read(reinterpret_cast<char*>(&tag), 4);
-        if (tag != TAG)
-        {
-            cerr << "Missing magic number!\n";
-            return 1;
-        }
-        uint32_t blockSize = 0;
-        inFile.read(reinterpret_cast<char*>(&blockSize), 4);
-        if (blockSize != IN_LEN)
-        {
-            cerr << "Incorrect max block size!\n";
-            return 1;
-        }
-        vector<uint32_t> sizes(2); /// compressed/uncompressed pairs
-        inFile.read(reinterpret_cast<char*>(sizes.data()), 4 * sizes.size());
-        size_t dataSize = sizes[1]; /// uncompressed data chunk size
-        unsigned numBlocks = (dataSize + blockSize - 1) / blockSize;
-        //cout << "Num blocks: " << numBlocks << endl;
-        if (numBlocks < 1)
-        {
-            cerr << "Bad data!\n";
-            return 1;
-        }
-        sizes.resize((numBlocks + 1)*2);
-        inFile.read(reinterpret_cast<char*>(sizes.data()) + 8, 4 * sizes.size() - 8);
-        /*for (unsigned i = 0; i <= numBlocks; ++i)
-        {
-            cout << "Compressed size: " << sizes[i * 2]
-                 << "\tUncompressed size: " << sizes[i * 2 + 1] << endl;
-        }*/
-        vector<unsigned char> dataChunk(dataSize);
-        vector<unsigned char> compressedData(sizes[0]);
-        inFile.read(reinterpret_cast<char*>(compressedData.data()), compressedData.size());
-        size_t blockOffset = 0;
-        size_t dataOffset = 0;
-        for (unsigned i = 1; i <= numBlocks; ++i)
-        {
-            out_len = sizes[i * 2]; /// compressed size
-            lzo_memcpy(out, compressedData.data() + blockOffset, out_len);
-            in_len = sizes[i * 2 + 1]; /// uncompressed size
-            new_len = in_len;
-            err = lzo1x_decompress(out, out_len, in, &new_len, NULL);
-            if (err == LZO_E_OK && new_len == in_len)
-                cout << "decompressed " << (unsigned long) out_len << " bytes back into "
-                     << (unsigned long) in_len << endl;
-            else
-            {
-                cout << "LZO library internal error: decompression failed!!!\n";
-                return 3;
-            }
-            lzo_memcpy(dataChunk.data() + dataOffset, in, in_len);
-            blockOffset += out_len;
-            dataOffset += in_len;
-        }
         ofstream outFile((string(argV[2]) + ".unpacked").c_str(), ios::binary);
         if (!outFile.is_open())
         {
             cerr << "Can't open output file!!!\n";
             return 1;
         }
-        outFile.write(reinterpret_cast<char*>(dataChunk.data()), dataSize);
+        uint32_t tag = 0;
+        while (inFile.read(reinterpret_cast<char*>(&tag), 4).good())
+        {
+            cout << "Next block:\n";
+            if (tag != TAG)
+            {
+                cerr << "Missing magic number!\n";
+                return 1;
+            }
+            uint32_t blockSize = 0;
+            inFile.read(reinterpret_cast<char*>(&blockSize), 4);
+            if (blockSize != IN_LEN)
+            {
+                cerr << "Incorrect max block size!\n";
+                return 1;
+            }
+            vector<uint32_t> sizes(2); /// compressed/uncompressed pairs
+            inFile.read(reinterpret_cast<char*>(sizes.data()), 4 * sizes.size());
+            size_t dataSize = sizes[1]; /// uncompressed data chunk size
+            unsigned numBlocks = (dataSize + blockSize - 1) / blockSize;
+            //cout << "Num blocks: " << numBlocks << endl;
+            if (numBlocks < 1)
+            {
+                cerr << "Bad data!\n";
+                return 1;
+            }
+            sizes.resize((numBlocks + 1)*2);
+            inFile.read(reinterpret_cast<char*>(sizes.data()) + 8, 4 * sizes.size() - 8);
+            /*for (unsigned i = 0; i <= numBlocks; ++i)
+            {
+                cout << "Compressed size: " << sizes[i * 2]
+                     << "\tUncompressed size: " << sizes[i * 2 + 1] << endl;
+            }*/
+            vector<unsigned char> dataChunk(dataSize);
+            vector<unsigned char> compressedData(sizes[0]);
+            inFile.read(reinterpret_cast<char*>(compressedData.data()), compressedData.size());
+            size_t blockOffset = 0;
+            size_t dataOffset = 0;
+            for (unsigned i = 1; i <= numBlocks; ++i)
+            {
+                out_len = sizes[i * 2]; /// compressed size
+                lzo_memcpy(out, compressedData.data() + blockOffset, out_len);
+                in_len = sizes[i * 2 + 1]; /// uncompressed size
+                new_len = in_len;
+                err = lzo1x_decompress(out, out_len, in, &new_len, NULL);
+                if (err == LZO_E_OK && new_len == in_len)
+                    cout << "decompressed " << (unsigned long) out_len << " bytes back into "
+                         << (unsigned long) in_len << endl;
+                else
+                {
+                    cout << "LZO library internal error: decompression failed!!!\n";
+                    return 3;
+                }
+                lzo_memcpy(dataChunk.data() + dataOffset, in, in_len);
+                blockOffset += out_len;
+                dataOffset += in_len;
+            }
+            outFile.write(reinterpret_cast<char*>(dataChunk.data()), dataSize);
+        }
         return 0;
     }
     return 0;
