@@ -3,6 +3,7 @@
 
 #include "UPKInfo.h"
 #include <fstream>
+#include <sstream>
 #include "minilzo.h"
 
 using namespace std;
@@ -18,15 +19,15 @@ static unsigned char __LZO_MMODEL out [ OUT_LEN ];         /// output data
 
 //static HEAP_ALLOC(wrkmem, LZO1X_1_MEM_COMPRESS);           /// lzo working memory
 
-void SerializeSummary(FPackageFileSummary Summary, ofstream& decompressedPackage);
+void SerializeSummary(FPackageFileSummary Summary, ostream& decompressedPackage);
 
 int main(int argN, char* argV[])
 {
     cout << "DecompressLZO" << endl;
 
-    if (argN != 2)
+    if (argN < 2 || argN > 3)
     {
-        cerr << "Usage: DecompressLZO CompressedResourceFile.upk" << endl;
+        cerr << "Usage: DecompressLZO CompressedResourceFile.upk [DecompressedResourceFile.upk]" << endl;
         return 1;
     }
 
@@ -36,8 +37,11 @@ int main(int argN, char* argV[])
         cerr << "Can't open " << argV[1] << endl;
         return 1;
     }
+    stringstream package_stream;
+    package_stream << package.rdbuf();
+    package.close();
 
-    UPKInfo PackageInfo(package);
+    UPKInfo PackageInfo(package_stream);
 
     UPKReadErrors err = PackageInfo.GetError();
 
@@ -77,8 +81,16 @@ int main(int argN, char* argV[])
 
     lzo_memset(in, 0, IN_LEN);
 
-    /// init decompressed file
-    ofstream decompressedPackage((string(argV[1]) + ".uncompr").c_str(), ios::binary);
+    stringstream decompressed_stream;
+    ofstream decompressedPackage;
+    if (argN == 3)
+    {
+        decompressedPackage.open(argV[2], ios::binary);
+    }
+    else
+    {
+        decompressedPackage.open((string(argV[1]) + ".uncompr").c_str(), ios::binary);
+    }
     if (!decompressedPackage.is_open())
     {
         cerr << "Can't open output file!!!\n";
@@ -94,7 +106,7 @@ int main(int argN, char* argV[])
     else
     {
         cout << "Writing package summary...\n";
-        SerializeSummary(Summary, decompressedPackage);
+        SerializeSummary(Summary, decompressed_stream);
     }
 
     cout << "Decompressing package...\n";
@@ -103,31 +115,31 @@ int main(int argN, char* argV[])
     {
         if (PackageInfo.IsFullyCompressed())
         {
-            package.seekg(0);
+            package_stream.seekg(0);
         }
         else
         {
-            package.seekg(Summary.CompressedChunks[i].CompressedOffset);
+            package_stream.seekg(Summary.CompressedChunks[i].CompressedOffset);
         }
 
         cout << "Decompressing chunk #" << i << endl;
 
         uint32_t tag = 0;
-        package.read(reinterpret_cast<char*>(&tag), 4);
+        package_stream.read(reinterpret_cast<char*>(&tag), 4);
         if (tag != 0x9E2A83C1)
         {
             cerr << "Missing magic number!\n";
             return 1;
         }
         uint32_t blockSize = 0;
-        package.read(reinterpret_cast<char*>(&blockSize), 4);
+        package_stream.read(reinterpret_cast<char*>(&blockSize), 4);
         if (blockSize != IN_LEN)
         {
             cerr << "Incorrect max block size!\n";
             return 1;
         }
         vector<uint32_t> sizes(2); /// compressed/uncompressed pairs
-        package.read(reinterpret_cast<char*>(sizes.data()), 4 * sizes.size());
+        package_stream.read(reinterpret_cast<char*>(sizes.data()), 4 * sizes.size());
         size_t dataSize = sizes[1]; /// uncompressed data chunk size
         unsigned numBlocks = (dataSize + blockSize - 1) / blockSize;
         cout << "Num blocks: " << numBlocks << endl;
@@ -137,7 +149,7 @@ int main(int argN, char* argV[])
             return 1;
         }
         sizes.resize((numBlocks + 1)*2);
-        package.read(reinterpret_cast<char*>(sizes.data()) + 8, 4 * sizes.size() - 8);
+        package_stream.read(reinterpret_cast<char*>(sizes.data()) + 8, 4 * sizes.size() - 8);
         for (unsigned i = 0; i <= numBlocks; ++i)
         {
             cout << "Compressed size: " << sizes[i * 2]
@@ -145,7 +157,7 @@ int main(int argN, char* argV[])
         }
         vector<unsigned char> dataChunk(dataSize);
         vector<unsigned char> compressedData(sizes[0]);
-        package.read(reinterpret_cast<char*>(compressedData.data()), compressedData.size());
+        package_stream.read(reinterpret_cast<char*>(compressedData.data()), compressedData.size());
         size_t blockOffset = 0;
         size_t dataOffset = 0;
         for (unsigned i = 1; i <= numBlocks; ++i)
@@ -167,13 +179,15 @@ int main(int argN, char* argV[])
             blockOffset += out_len;
             dataOffset += in_len;
         }
-        decompressedPackage.write(reinterpret_cast<char*>(dataChunk.data()), dataSize);
+        decompressed_stream.write(reinterpret_cast<char*>(dataChunk.data()), dataSize);
     }
+
+    decompressedPackage << decompressed_stream.str();
 
     return 0;
 }
 
-void SerializeSummary(FPackageFileSummary Summary, ofstream& stream)
+void SerializeSummary(FPackageFileSummary Summary, ostream& stream)
 {
     /// reset compression flags
     Summary.CompressionFlags = 0;
