@@ -859,21 +859,23 @@ std::string UMapProperty::Deserialize(std::istream& stream, UPKInfo& info)
 std::string ULevel::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
+    UObjectReference A;
+    uint32_t NumActors;
     ss << UObject::Deserialize(stream, info);
     uint32_t pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
-    ss << "Stream relative position (debug info): " << FormatHEX(pos) << " (" << pos << ")\n";
     ss << "ULevel:\n";
-    ss << "Actors:\n";
-    for (int i = 0; ; ++i)
+    stream.read(reinterpret_cast<char*>(&A), sizeof(A));
+    ss << "\tLevel object: " << FormatHEX((uint32_t)A) << " -> " << info.ObjRefToName(A) << std::endl;
+    stream.read(reinterpret_cast<char*>(&NumActors), sizeof(NumActors));
+    ss << "\tNum actors: " << FormatHEX(NumActors) << " = " << NumActors << std::endl;
+    stream.read(reinterpret_cast<char*>(&A), sizeof(A));
+    ss << "\tWorldInfo object: " << FormatHEX((uint32_t)A) << " -> " << info.ObjRefToName(A) << std::endl;
+    ss << "\tActors:\n";
+    for (unsigned i = 0; i < NumActors; ++i)
     {
-        UObjectReference A;
         stream.read(reinterpret_cast<char*>(&A), sizeof(A));
-        if (info.GetExportEntry(A).FullName.find("TheWorld.PersistentLevel") == std::string::npos && A != 0x0)
-        {
-            break;
-        }
         Actors.push_back(A);
-        ss << "\t" << FormatHEX((char*)&A, sizeof(A)) << "\t//\t" << FormatHEX((uint32_t)A) << "\t//\t" << info.ObjRefToName(A) << std::endl;
+        ss << "\t\t" << FormatHEX((char*)&A, sizeof(A)) << "\t//\t" << FormatHEX((uint32_t)A) << " -> " << info.ObjRefToName(A) << std::endl;
     }
     pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
     ss << "Stream relative position (debug info): " << FormatHEX(pos) << " (" << pos << ")\n";
