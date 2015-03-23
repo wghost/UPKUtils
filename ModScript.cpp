@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cctype>
 #include <algorithm>
+#include <stack>
 
 void ModScript::SetExecutors()
 {
@@ -1856,6 +1857,11 @@ std::string GetWord(std::istream& in)
         }
         return word;
     }
+    /// extract marker
+    if (ch == '(' || ch == ')')
+    {
+        return word;
+    }
     /// extract HEX
     if (isxdigit(ch))
     {
@@ -1900,6 +1906,7 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
     std::ostringstream ScriptHEX;
     std::istringstream WorkingData(ScriptData);
     std::map<std::string, uint16_t> Labels;
+    std::stack<std::string> MarkerLabels;
     unsigned ScriptMemSize = 0, MemSize = 0;
     bool needSecondPass = false;
     unsigned numPasses = 0;
@@ -1912,6 +1919,12 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
             WorkingData.clear();
             ScriptHEX.str("");
             ScriptHEX.clear();
+            if (MarkerLabels.size() != 0)
+            {
+                *ErrorMessages << "Unresolved marker(s) found!" << std::endl;
+                SetBad();
+                return std::string("");
+            }
         }
         while (!WorkingData.eof())
         {
@@ -1951,15 +1964,41 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
                 Command = EatWhite(Command); /// remove white-spaces
                 if (Command[0] == '@') /// label reference
                 {
-                    if (Labels.count(Command.substr(1)) != 0) /// found reference
+                    if (Command.length() == 1) /// [@] - auto-calculate memory size
                     {
-                        uint16_t LabelPos = Labels[Command.substr(1)];
-                        ScriptHEX << MakeTextBlock(reinterpret_cast<char*>(&LabelPos), 2);
+                        if (numPasses == 0) /// first pass - create label
+                        {
+                            std::string autoLabel = "__automemsize__" + FormatHEX(ScriptMemSize);
+                            if (Labels.count(autoLabel) != 0)
+                            {
+                                *ErrorMessages << "Internal error! Duplicated auto-label: " << autoLabel << std::endl;
+                                SetBad();
+                                return std::string("");
+                            }
+                            Labels[autoLabel] = 0; /// init new label
+                            MarkerLabels.push(autoLabel); /// keep track of unresolved labels
+                            needSecondPass = true; /// request second pass
+                            ScriptHEX << "[@" << autoLabel << "] "; /// put auto-generated label back into the stream
+                        }
+                        else
+                        {
+                            *ErrorMessages << "Internal error! Unresolved command: " << NextWord << std::endl;
+                            SetBad();
+                            return std::string("");
+                        }
                     }
-                    else
+                    else /// [@label_name] - resolve named labels
                     {
-                        ScriptHEX << NextWord << " ";
-                        needSecondPass = true;
+                        if (Labels.count(Command.substr(1)) != 0) /// found reference
+                        {
+                            uint16_t LabelPos = Labels[Command.substr(1)];
+                            ScriptHEX << MakeTextBlock(reinterpret_cast<char*>(&LabelPos), 2);
+                        }
+                        else
+                        {
+                            ScriptHEX << NextWord << " ";
+                            needSecondPass = true;
+                        }
                     }
                     if (numPasses == 0)
                         ScriptMemSize += 2;
@@ -1974,6 +2013,36 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
                     }
                     if (numPasses == 0)
                         Labels[Command.substr(1)] = ScriptMemSize;
+                }
+            }
+            else if(IsMarker(NextWord)) /// resolve memory size markers '(' and ')'
+            {
+                if (numPasses != 0) /// should not be here at the second pass
+                {
+                    *ErrorMessages << "Internal error! Unresolved marker: " << NextWord << std::endl;
+                    SetBad();
+                    return std::string("");
+                }
+                if (NextWord == "(") /// start position
+                {
+                    if (MarkerLabels.size() == 0 || Labels[MarkerLabels.top()] != 0)
+                    {
+                        *ErrorMessages << "Bad marker: " << NextWord << std::endl;
+                        SetBad();
+                        return std::string("");
+                    }
+                    Labels[MarkerLabels.top()] = ScriptMemSize;
+                }
+                else /// end position
+                {
+                    if (MarkerLabels.size() == 0 || Labels[MarkerLabels.top()] == 0)
+                    {
+                        *ErrorMessages << "Bad marker: " << NextWord << std::endl;
+                        SetBad();
+                        return std::string("");
+                    }
+                    Labels[MarkerLabels.top()] = ScriptMemSize - Labels[MarkerLabels.top()];
+                    MarkerLabels.pop(); /// close the current marker
                 }
             }
             else
@@ -2011,6 +2080,13 @@ bool ModScript::IsCommand(std::string word)
     if (word.length() < 3)
         return false;
     return (word.front() == '[' && word.back() == ']');
+}
+
+bool ModScript::IsMarker(std::string word)
+{
+    if (word.length() != 1) /// one symbol '(' or ')'
+        return false;
+    return (word.front() == '(' || word.back() == ')');
 }
 
 std::string ModScript::TokenToHEX(std::string Token, unsigned* MemSizeRef)

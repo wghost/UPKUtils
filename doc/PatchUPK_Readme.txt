@@ -1,29 +1,27 @@
 -----------------------------------------------------------------------------------------------------------------
-    UPK Utils: PatchUPK documentation file
+    PatchUPK documentation file
 -----------------------------------------------------------------------------------------------------------------
 
-PatchUPK is a Windows console utility to patch XCOM packages (upk files). Packages must be decompressed first
-(using DecompressLZO or Gildor's decompress.exe for Windows).
+PatchUPK is a console application for patching XCOM packages (upk files). Packages must be decompressed first
+(using DecompressLZO or Gildor's decompress.exe).
 
 PatchUPK operates on special script files and applies subsequent changes to packages.
-
-Version 6.1, 10/03/2014
-
-Wasteland Ghost aka wghost81 (wghost81@gmail.com).
 
 -----------------------------------------------------------------------------------------------------------------
     Script commands basics
 -----------------------------------------------------------------------------------------------------------------
 
-There are two types of commands: keys and sections. Keys are followed by '=' sign to separate them from values
-and sections are enclosed into brackets '[' and ']'.
+There are two types of commands: keys and sections. Keys are followed by '=' character to separate them from
+values and sections are enclosed into brackets '[' and ']'.
+
+Keys can have additional specifiers separated by ':' character.
 
 -----------------------------------------------------------------------------------------------------------------
     Comments
 -----------------------------------------------------------------------------------------------------------------
 
-PatchUPK supports two types of comments: curly brackets comments (enclosed in  '{' and '}') and C-style comments.
-You may use comments anywhere in the mod file. Examples:
+PatchUPK supports two types of comments: curly brackets (text enclosed in '{' and '}') and C-style comments.
+You can use comments anywhere inside a file. Examples:
 /* Multi-line
    comment */
 // Line comment
@@ -41,188 +39,183 @@ of the file to select what parts of your mod can be uninstalled safely and what 
 
 UPDATE_REL key allows to switch relative offset auto-update on and off. Default behavior is off. UPDATE_REL=TRUE
 forces Patcher to update relative offset after each write operation. UPDATE_REL=FALSE tells Patcher to keep
-relative offset intact.
+relative offset unchanged.
 
 -----------------------------------------------------------------------------------------------------------------
     Optional keys
 -----------------------------------------------------------------------------------------------------------------
 
-MOD_NAME, AUTHOR and DESCRIPTION keys are used to provide author and mod information and may be used as mod's
+MOD_NAME, AUTHOR and DESCRIPTION keys are used to provide author and mod information and can be used as mod's
 readme.
 
 -----------------------------------------------------------------------------------------------------------------
     Loading a package
 -----------------------------------------------------------------------------------------------------------------
 
-GUID key adds specified GUID to allowed GUIDs list. Example:
+GUID key adds the GUID to list of allowed GUIDs. Example:
 GUID=3F3B9C3140E45D9C8E92AFABF2746525:XComStrategyGame.upk
-GUID value must correspond with the output of ExtractNameLists program! You may add multiple GUIDs for the same
-package and multiple GUIDs for multiple packages. Use GUID key before you load a package with UPK_FILE key!
+GUID value should correspond with the output of ExtractNameLists program! You can add multiple GUIDs for the same
+package and multiple GUIDs for multiple packages. Declare allowed GUIDs before you start loading a package!
 
 UPK_FILE key loads a package. Example:
 UPK_FILE=XComGame.upk
-Patcher opens the specified package, reads its header info, reconstructs full object names and additional info
-for "smart" patching operations, so this command may take a while to complete.
-If specified package is already opened, patcher will not try to re-open it.
+Patcher opens the package, reads its header info, reconstructs full object names and additional info for "smart"
+patching operations, so this command may take a while to complete. If the package is already opened, patcher
+will not try to re-open it.
     
 -----------------------------------------------------------------------------------------------------------------
     Setting a scope
 -----------------------------------------------------------------------------------------------------------------
 
-There currently are four different scopes:
+There currently are five different scopes:
 - Package
 - Name Table Entry
 - Import Table Entry
 - Export Table Entry
-- Object: serialized data, referenced in Export Table Entry
+- Object: serialized data referenced in the Export Table Entry
 
-OFFSET key sets a scope to entire package, excluding first 8 bytes, as changing package signature and version
-is not allowed. Offset sets write pointer to specified ABSOLUTE file offset (i.e. from the very beginning - 0 byte).
-You may use dec and hex value representation.
+OFFSET key sets the scope to an entire package (excluding first 8 bytes as changing package signature and version
+is not allowed). The key sets a stream position to an ABSOLUTE file offset (i.e. from the very beginning - byte 0).
+You can use dec and hex value representation.
 OFFSET=0xA1B2
 OFFSET=12345
 
-NAME_ENTRY, IMPORT_ENTRY and EXPORT_ENTRY keys set scope to specified table entry: unique name for NAME_ENTRY
-and full object name for IMPORT_ENTRY and EXPORT_ENTRY:
-NAME_ENTRY=GetAltWeapon
-IMPORT_ENTRY=XComGame.XComGameInfo.PerkContents
-EXPORT_ENTRY=XGStrategyAI.GetAltWeapon
+NAME_ENTRY, IMPORT_ENTRY and EXPORT_ENTRY keys set the scope to a table entry: name entry for NAME_ENTRY
+and object entry for IMPORT_ENTRY and EXPORT_ENTRY:
+NAME_ENTRY=GetAltWeapon // use unique name here
+IMPORT_ENTRY=XComGame.XComGameInfo.PerkContents // use full object name here
+EXPORT_ENTRY=XGStrategyAI.GetAltWeapon // use full object name here
 
-OBJECT key sets the current scope to specified export object:
+OBJECT key sets the scope to an export object:
 OBJECT=XGStrategyAI.GetAltWeapon
-Value of this key may be used with specifiers:
+This key has specifiers:
 OBJECT=XGStrategyAI.GetAltWeapon:KEEP
 OBJECT=XGStrategyAI.GetAltWeapon:MOVE
 OBJECT=XGStrategyAI.GetAltWeapon:AUTO
 OBJECT=XGStrategyAI.GetAltWeapon:INPL
-If specifier is empty, KEEP is assumed. KEEP provides a most safest behavior: write operations will be performed
-inside specified scope only. It means, if data chunk exceeds object's size, write operation will fail.
-MOVE specifier forces object data move before applying any changes.
+If specifier is empty, KEEP is assumed. KEEP provides the most safest behavior: write operations will be performed
+inside the scope only. It means, if a data chunk exceeds object's size, write operation will fail.
+MOVE specifier forces moving object's data before applying any changes.
 AUTO specifier allows program to auto-move/resize object when needed.
 INPL specifier works similar to AUTO, but resizes object in-place instead of moving it.
-Note that modifiers themselves do not make any changes: they work when you start to write actual data.
+Note that specifiers themselves do not make any changes: they work when you start to write actual data.
     
 -----------------------------------------------------------------------------------------------------------------
     Setting a relative offset
 -----------------------------------------------------------------------------------------------------------------
 
-REL_OFFSET key is used to set relative offset inside current scope. Example:
+REL_OFFSET key is used to set a relative offset inside the scope. Example:
 REL_OFFSET=0x30
 REL_OFFSET=48
 
 -----------------------------------------------------------------------------------------------------------------
-    Finding the binary data
+    Finding a binary data
 -----------------------------------------------------------------------------------------------------------------
 
-FIND_HEX key is used to find specified data and set the relative offset to the beginning of that data:
+FIND_HEX key is used to find the data and set a relative offset to the beginning of that data:
 FIND_HEX=0A 0B 12 34
-Value of FIND_HEX is a space-separated hex-represented bytes string. You may use comments and multiline strings
-inside FIND_HEX value.
+The value of FIND_HEX is a space-separated hex-represented string of bytes. You can use comments and multiline
+strings inside FIND_HEX value.
 
-Since v.3.2 FIND_HEX can be used with modifiers: BEG and END. Examples:
+FIND_HEX has two specifiers: BEG and END. Examples:
 FIND_HEX=0A 0B 12 34:BEG
 FIND_HEX=0A 0B 12 34:END
-Using BEG will set current offset to the beginning of search string and using END will set the offset to the end
-of search string. If no modifier is present, BEG is assumed.
+Using BEG will set the offset to the beginning of the search string and using END will set the offset to the
+end of it. If no specifier is present, BEG is assumed.
 
-WARNING! Since v.3.2 FIND_HEX no longer sets temporary scope! It sets current offset only, as the very first
-version did!
-    
 -----------------------------------------------------------------------------------------------------------------
-    Writing the binary data
+    Writing a binary data
 -----------------------------------------------------------------------------------------------------------------
 
-MODDED_HEX key is used to write specified data at current offset inside current scope. Value is the same as for
-FIND_HEX: space-separated hex-represented bytes string, may be multiline, may use comments.
+MODDED_HEX key is used to write the data at relative offset inside current scope. The value is the same as for
+FIND_HEX: space-separated hex-represented string of bytes, can be multiline, can use comments.
 MODDED_HEX=0A 0B 12 34
 If AUTO or MOVE object specifier is used, program will attempt to auto-expand current object to fit MODDED_HEX
-data. Auto-expand works for export object serial data only, table entries won't be expanded.
+data. Auto-expand works for export object's serial data only, table entries won't be expanded.
 
 MODDED_FILE key is used to read modded binary data from separate file.
 MODDED_FILE=path-to-file.ext
 
 MODDED_FILE is considered a total replacement for current scope: i.e. it should contain full object data. It is
 also required to use Full.Object.Name.ext pattern for file name, so program could auto-set scope, based on file
-name. Object data files must use .Type as their extension and table entries must use .NameEntry, .ImportEntry and
-.ExportEntry respectively. Examples:
+name. Object data files should use .Type as their extension and table entries should use .NameEntry,
+.ImportEntry and .ExportEntry respectively. Examples:
 MODDED_FILE=XGStrategyAI.GetAltWeapon.Function
 MODDED_FILE=GetAltWeapon.NameEntry
 MODDED_FILE=XComGame.XComGameInfo.PerkContents.ImportEntry
 MODDED_FILE=XGStrategyAI.GetAltWeapon.ExportEntry
 You can use the same specifiers as for OBJECT key with MODDED_FILE key, although they will work for objects only
-and will be ignored for table entries. After successful patching, current scope will be set to specified object.
-Since modded file contains an object replacement code, export object data will be resized (expanded or shrunk)
-accordingly if AUTO or MOVE modifier is set.
+and will be ignored for table entries. After successful patching current scope will be set to the object. Since
+modded file contains an object replacement code, export object data will be resized (expanded or shrunk)
+accordingly if AUTO or MOVE specifier is set.
 
 BYTE, FLOAT, INTEGER and UNSIGNED keys are used to set corresponding values. BYTE value is unsigned dec or hex
 represented 1-byte value. FLOAT and INTEGER are signed dec-represented 4-byte values. UNSIGNED is unsigned dec
 or hex represented 4-byte value.
 
-NAMEIDX key is used to write UNameIndex 8-byte value, determined by specified name. Example:
+NAMEIDX key is used to write UNameIndex 8-byte value determined by the name. Example:
 NAMEIDX=GetAltWeapon
 
-OBJIDX key is used to write UObjectReference 4-byte signed value, determined by object's full name. Example:
+OBJIDX key is used to write UObjectReference 4-byte signed value determined by the full name. Example:
 OBJIDX=XGStrategyAI.GetAltWeapon
    
 -----------------------------------------------------------------------------------------------------------------
     Modifying object table entry
 -----------------------------------------------------------------------------------------------------------------
 
-RENAME key is used to rename an entry in NameTable:
+RENAME key is used to rename an entry in the Name Table:
 RENAME=GetAltWeapon:#GetPodProgs
-Changing entry size is not allowed, so new name length must be equal to old name length. After successful
-renaming, current scope will be set to new Name Table name.
+Changing entry size is not allowed, so new name length should be equal to old name length. After successful
+renaming current scope will be set to new Name Table name.
 
-If entry is already renamed, program will just set current scope to it and continue patching.
+If entry is already renamed program will just set current scope to it and continue patching.
 
 -----------------------------------------------------------------------------------------------------------------
     Expanding a function
 -----------------------------------------------------------------------------------------------------------------
 
-EXPAND_FUNCTION is a key, used to expand functions:
+EXPAND_FUNCTION key is used to expand functions:
 EXPAND_FUNCTION=XGStrategyAI.GetPossibleAliens:5828
 It will expand function code by adding 0B (nop) tokens and modifying serial and memory size accordingly and set
-current scope to specified object after successful patching. If function already has specified size, it will do
+current scope to the object after successful patching. If function already is of requested size, it will do
 nothing.
 EXPAND_FUNCTION will also expand other objects by simply appending zeroes to the end of object data (for backward-
 compatibility reasons).
 
 EXPAND_UNDO key is used to undo move/expand operation:
 EXPAND_UNDO=XGStrategyAI.GetAltWeapon
-As move/expand operation keeps original data in place, EXPAND_UNDO simply restores ExportTable references to
-the old data. No other changes are made and no "garbage" (expanded object binary) is collected. Used mostly
-for uninstall purposes.
+As move/expand operation keeps original data in place, EXPAND_UNDO simply restores ExportTable references.
+No other changes are made and no "garbage" (expanded object binary) is collected. Used mostly for uninstall
+purposes.
     
 -----------------------------------------------------------------------------------------------------------------
     Section-style patching
 -----------------------------------------------------------------------------------------------------------------
 
-Some time ago I decided that sections are bulky and may be easily replaced with keys, while keeping all
-functionality. But for the sake of backward-compatibility (and because IDIC matters!) program still supports
-sections.
+All the keys can also be written as sections (for compatibility reasons and because IDIC matters).
 
-[MODDED_HEX] section is equal to MODDED_HEX key. Example:
+[MODDED_HEX] section is an equivalent of MODDED_HEX key. Example:
 [MODDED_HEX]
 AB CD 12 34
-You may use [/MODDED_HEX] to visually mark section end, but it is purely optional.
+You can use [/MODDED_HEX] to visually mark section end, but it is purely optional.
 
-[FIND_HEX] (with optional [/FIND_HEX]) is equal to FIND_HEX key.
+[FIND_HEX] (with optional [/FIND_HEX]) is an equivalent of FIND_HEX key.
     
 -----------------------------------------------------------------------------------------------------------------
     Find-and-replace (FNR) style patching (UPKModder compatibility)
 -----------------------------------------------------------------------------------------------------------------
 
-Since v.3.2 BEFORE_HEX and AFTER_HEX are considered a unique commands and behave similar to those of UPKModder.
+BEFORE_HEX and AFTER_HEX are unique commands that behave similar to those of UPKModder.
 
-[BEFORE_HEX] (with optional [/BEFORE_HEX]) will set current scope to search string.
+[BEFORE_HEX] (with optional [/BEFORE_HEX]) sets current scope to search string.
 
 [AFTER_HEX] (with optional [/AFTER_HEX]) string is considered a replacement for BEFORE_HEX string and can not be
 used without calling BEFORE_HEX first.
 
-If FNR operation is performed within export object scope, it will respect OBJECT key modifiers: for KEEP it will
+If FNR operation is performed within export object scope it will respect OBJECT key specifiers: for KEEP it will
 require AFTER_HEX data length be equal to BEFORE_HEX data length and for AUTO and MOVE it will auto-expand
 (or shrink) BEFORE_HEX scope to fit AFTER_HEX data. Program will auto-adjust script serial size for objects with
-scripts (functions and states), but it won't do anything about script memory size, as it doesn't know anything
+scripts (functions and states), but it won't do anything about script memory size as it doesn't know anything
 about it (see "Using pseudo-code" section below for pseudo-code version which does calculate and rewrite both
 serial and memory sizes).
 
@@ -233,7 +226,7 @@ See "Using pseudo-code" section for BEFORE_CODE/AFTER_CODE combination, which ca
 memory sizes.
 
 REPLACE_HEX/REPLACE_CODE keys are used to batch-replace specified data. They perform subsequent BEFORE/AFTER
-patching inside current scope, until all the blocks of before data are found and replaced.
+patching inside current scope until all the blocks of before data are found and replaced.
 
 Example:
 REPLACE_CODE=<.LocalVarA>:<.LocalVarB>
@@ -242,7 +235,7 @@ REPLACE_CODE=<.LocalVarA>:<.LocalVarB>
     Writing bulk data
 -----------------------------------------------------------------------------------------------------------------
 
-BULK_DATA/BULK_FILE keys allow to write BulkDataMirror objects, which use absolute file offsets to mark raw data
+BULK_DATA/BULK_FILE keys allow to write BulkDataMirror objects which use absolute file offset to mark raw data
 file position. BulkDataMirror objects are used to store textures and sounds inside cooked packages.
 
 Examples:
@@ -256,8 +249,8 @@ BULK_FILE=path/to/binaryfile.ext
 As PatchUPK can auto-convert object/name references to hex code, you can write scripts (and plain references) in
 pseudo-code.
 
-Pseudo-code is enclosed in '<' and '>' brackets. Since v.4.0 you can use any type of white-spaces and comments
-inside brackets. Example:
+Pseudo-code is enclosed in '<' and '>' brackets. You can use any type of white-spaces and comments inside brackets.
+Example:
 <%b
 // user-changeable section: set sniper class probability
 25
@@ -267,15 +260,13 @@ inside brackets. Example:
 -------
 Syntax:
 -------
-1. Numeric constants:
-    <%c Value>, where c is a single-character format specifier:
+1. Numeric constants: <%c Value>, where c is a single-character format specifier:
         f - float (4 bytes)
         i - signed integer (4 bytes)
         u - unsigned integer (4 bytes)
         s - short unsigned integer (2 bytes)
         b - byte (1 byte)
         t - text (variable-size string)
-    and Value is a numeric.
     Examples:
         <%f  1.0>
         <%i -1>
@@ -285,28 +276,30 @@ Syntax:
         <%t  "text">
         <%t  "text with spaces "and inner quotes"">
 2. Object references:
-    <Class.ClassName> - class reference, must begin with "Class."!
+    <Class.ClassName> - class reference, should begin with "Class."!
     <ClassName.ObjName> - object reference (full object name).
-    <.LocalObjName> - local object reference, must begin with ".". Full name is constructed by prepending local
-    name with full name of current export object. Can not be used outside of export object scope.
-    <@MemberObjName> - member object reference, full object name is constructed by prepending member name with
-    class name, determined from current export object name. Can not be used outside of export object scope.
+    <.LocalObjName> - local object reference, should begin with ".". Full name is reconstructed by prepending
+	local name with full name of current export object. Can not be used outside of export object scope.
+    <@MemberObjName> - member object reference, full object name is reconstructed by prepending member name
+	with class name determined from current export object name. Can not be used outside of export object scope.
     <!AliasName> - alias reference (see ALIAS key description below).
     <NullRef> - null object reference (0x00000000) with 4 serial and 8 memory size.
 3. Name reference:
     <Name> - plain simple name.
+4. [@label_name] and [#label_name], [@] and () - labels and references for auto-calculating memory offsets
+   (see below).
 
 ------------------
 Keys and sections:
 ------------------
 MODDED_CODE (key and section) - used to write a modded code at current scope, equivalent of MODDED_HEX.
-FIND_CODE (key and section) - used to find specified code, equivalent of FIND_HEX.
+FIND_CODE (key and section) - used to find the code, equivalent of FIND_HEX.
 INSERT_CODE (key and section) - used to insert a code at current position. Requires AUTO behavior, as it will
 resize current object to insert new data. Works with export object data only. Does not change memory/file size
 of a script! Useful for inserting additional default properties into default property list. Warning! Using
-this function for mod distribution is dangerous, as if applied twice it will add specified code twice!
+this function for mod distribution is not recommended, as if applied twice it will add the code twice!
 BEFORE_CODE and AFTER_CODE (sections) - behave like BEFORE_HEX and AFTER_HEX, but calculate and write correct
-serial and memory sizes in case of expanding/shrinking the object with script.
+serial and memory sizes in case of expanding/shrinking the object.
 
 Pseudo-code example:
 [MODDED_CODE]
@@ -348,9 +341,9 @@ ALIAS (key) - used to define alias name for a portion of code. Syntax:
     // if(Game().GetDifficulty() >= 2)
     07 00 00 99 <!GameDiff> 2C <%b2> 16
 
-Aliases are searched scope-wise: if alias is defined inside object scope, it considered local to that scope.
-While searching for alias replacement code, program first looks in the local scope and then in the global scope.
-This means you may have different aliases with the same names inside different objects.
+Aliases are searched scope-wise: if alias is defined inside object scope it is considered local to that
+scope. While searching for alias replacement code program first looks in the local scope and then in
+the global scope. This means you can have different aliases with the same names inside different scopes.
 
 Example of locally defined alias:
 OBJECT=XGStrategyAI.GetNumOutsiders:AUTO
@@ -371,15 +364,18 @@ Replacement code:
 -----------------
 
 REPLACEMENT_CODE (key and section) is used to completely replace export object script with the new one. Works
-only with objects, which have scripts (like functions and states). Will expand/shrink object if necessary and if
-current behavior is set to "AUTO" or "MOVE". Will auto-calculate and re-write memory and serial script size.
+only with objects which have scripts (like functions and states). Will expand/shrink object if necessary and
+if current behavior is set to "AUTO" or "MOVE". Will auto-calculate and re-write memory and serial script size.
 
-You can use CODE keys/sections with pure hex data, but in this case REPLACEMENT_CODE will set wrong memory size
-(equal to serial script size). You may still set memory size manually, but you must do it after REPLACEMENT_CODE
-call. Same way, memory size won't be calculated properly if you mix pure hex data with the pseudo-code.
+You can use CODE keys/sections with pure/partial hex data, but in this case the memory size will be wrong and
+you will need to set it manually. If you choose to do this, you should do it after REPLACEMENT_CODE call.
 
-You can label a token inside a code with [#label] and reference that label with [@label]. Label names must be
-unique (see example below). Don't use labels if you mix pure hex with pseudo-code, as references will be wrong!
+----------------------
+Labels and references:
+----------------------
+
+You can label a token inside a code with [#label] and reference it with [@label]. Label names must be unique
+(see example below). Don't use labels if you mix pure hex with pseudo-code, as references will be wrong!
 
 Example:
 OBJECT=XGStrategyAI.GetNumOutsiders:AUTO
@@ -399,6 +395,13 @@ OBJECT=XGStrategyAI.GetNumOutsiders:AUTO
 // EOS
 53
 
+You can use empty reference [@] and a pair of parentheses to auto-calculate memory size/skip size. Example:
+// if(Game().GetDifficulty() >= 2)
+07 [@label1] 99 19 1B <Game> 16 [@] <XGStrategy.GetDifficulty.ReturnValue> 00 ( 1B <GetDifficulty> 16 ) 2C <%b2> 16
+
+[@] marks the place of memory size to calculate and parentheses mark the beginning and the end of the code
+which size needs to be auto-calculated.
+
 -----------------------------------------------------------------------------------------------------------------
     Adding new names and objects
 -----------------------------------------------------------------------------------------------------------------
@@ -406,10 +409,11 @@ OBJECT=XGStrategyAI.GetNumOutsiders:AUTO
 Warning! This feature is highly experimental and can completely mess up your packages! Use with caution!
 
 There are three main keys/sections for adding new objects:
-1. ADD_NAME_ENTRY - adds a name entry into name table.
-2. ADD_IMPORT_ENTRY - adds import entry into import table.
-3. ADD_EXPORT_ENTRY - adds export entry into export table and links new object to specified owner. Always writes
-   at least 16 bytes long serialized data: PrevObjRef + Empty DefaultProperties List + NextObjRef
+1. ADD_NAME_ENTRY - adds a name entry into the name table.
+2. ADD_IMPORT_ENTRY - adds an import entry into the import table.
+3. ADD_EXPORT_ENTRY - adds an export entry into the export table and links the new object to specified owner.
+                      Always writes at least 16 bytes long serialized data:
+					  PrevObjRef + Empty DefaultProperties List + NextObjRef
    
 Example: adding a new WGhost81 local variable to XGStrategyAI.GetNumOutsiders function
 
@@ -447,15 +451,15 @@ REL_OFFSET=16   // skip PrevObjRef + Empty DefaultProperties List + NextObjRef
 <None>          // CategoryIndex
 <NullRef>	    // ArrayEnumRef
 
-Note that all entries are actually raw data, written in PatchUPK pseudo-code. Patcher will get it as pure HEX
+Note that all entries are actually raw data written in PatchUPK pseudo-code. Patcher will get it as pure HEX
 code, deserialize it and link to owner if necessary. Patcher will not construct proper serial data for you,
-you must do it yourself after adding an object!
+you should do it yourself after adding an object!
 
 -----------------------------------------------------------------------------------------------------------------
     Legacy support: deprecated/renamed keys
 -----------------------------------------------------------------------------------------------------------------
 
-You may still use those, but it is recommended to move to new commands.
+You can still use those, but it is recommended to move on to new commands.
 
 FUNCTION key is an alias to OBJECT key. Renamed for obvious reasons: not all objects are functions.
 
@@ -467,7 +471,7 @@ NAMELIST_NAME key is an alias to much shorter RENAME key.
     Uninstall scripts
 -----------------------------------------------------------------------------------------------------------------
 
-When installing mod, PatchUPK automatically generates uninstall script and writes it to
+When installing mod PatchUPK automatically generates uninstall script and writes it to
 your_mod_file_name.uninstall.txt. "Installing" .uninstall.txt "mod" will not generate another uninstall file.
 In case your_mod_file_name.uninstall.txt already exists, program will generate your_mod_file_name.uninstall1.txt
 and so on.

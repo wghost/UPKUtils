@@ -160,7 +160,7 @@ class UPKInfo
 {
     public:
         /// constructors
-        UPKInfo(): Summary(), NoneIdx(0), ReadError(UPKReadErrors::NoErrors), Compressed(false), CompressedChunk(false) {};
+        UPKInfo(): Summary(), NoneIdx(0), ReadError(UPKReadErrors::NoErrors), Compressed(false), CompressedChunk(false), LastAccessedExportObjIdx(0) {};
         UPKInfo(std::istream& stream);
         /// destructor
         ~UPKInfo() {};
@@ -188,6 +188,7 @@ class UPKInfo
         bool IsFullyCompressed() { return (Compressed && CompressedChunk); }
         UPKReadErrors GetError() { return ReadError; }
         uint32_t GetCompressionFlags() { return Summary.CompressionFlags; }
+        UObjectReference GetLastAccessedExportObjIdx() { return LastAccessedExportObjIdx; }
         /// format header to text string
         std::string FormatCompressedHeader();
         std::string FormatSummary();
@@ -208,6 +209,7 @@ class UPKInfo
         bool Compressed;
         bool CompressedChunk;
         FCompressedChunkHeader CompressedHeader;
+        UObjectReference LastAccessedExportObjIdx;
 };
 
 /// helper functions

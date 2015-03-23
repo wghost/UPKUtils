@@ -2,17 +2,27 @@
     UPK Utils documentation file
 -----------------------------------------------------------------------------------------------------------------
 
-UPK Utils are a set of Windows console applications for analysing and patching uncompressed XCOM packages (.upk).
+UPK Utils are a set of console applications for analysing and patching XCOM packages (.upk).
 
-Version 6.1, 10/03/2014
+-----------------------------------------------------------------------------------------------------------------
+    DecompressLZO
+-----------------------------------------------------------------------------------------------------------------
 
-Wasteland Ghost aka wghost81 (wghost81@gmail.com).
+An utility to decompress upk files using LZO compression algorithm.
+
+Usage: DecompressLZO CompressedResourceFile.upk [DecompressedCompressedResourceFile.upk]
+
+If DecompressedCompressedResourceFile.upk is not specified, decompressed package is saved to
+CompressedResourceFile.upk.uncompr file.
+
+Works with compressed and fully compressed packages.
 
 -----------------------------------------------------------------------------------------------------------------
     ExtractNameLists
 -----------------------------------------------------------------------------------------------------------------
 
-This program is used to read package header and output the information to the console.
+The program reads package header (package information, name, import and export tables) and outputs the data
+to the console.
 
 Usage:
 ExtractNameLists UnpackedResourceFile.upk [/v]
@@ -21,22 +31,22 @@ Examples:
 ExtractNameLists.exe XComStrategyGame.upk
 ExtractNameLists.exe XComStrategyGame.upk /v
     
-To redirect output from console to text file type:
+To redirect output from the console to a text file type:
 ExtractNameLists UnpackedResourceFile.upk > file_name.txt
 Examples:
 ExtractNameLists.exe XComStrategyGame.upk > XComStrategyGame.txt
 ExtractNameLists.exe XComStrategyGame.upk /v > XComStrategyGame.txt
 
-This will redirect output to file_name.txt. Error messages will still be output into console.
+This will redirect output to file_name.txt. Error messages will still be printed into the console.
 
-If package is compressed, program will try to read and output compression info.
+If package is compressed, program will try to read and print compression info.
 
 -----------------------------------------------------------------------------------------------------------------
     FindObjectEntry
 -----------------------------------------------------------------------------------------------------------------
 
-This program is used to find specified object in specified package and output the information to the console.
-Program will also try to deserialize object's data and output all the info available.
+The program finds a specified object in a specified package and outputs the information to the console.
+Program will also try to deserialize object's data and print all the data available.
 
 Usage:
 FindObjectEntry UnpackedResourceFile.upk ObjectName [/d]
@@ -46,18 +56,18 @@ FindObjectEntry UnpackedResourceFile.upk ObjectName [/d]
 Example:
 FindObjectEntry.exe XComStrategyGame.upk XGFacility_PsiLabs.TPsiTrainee
 
-You can redirect output to file:
+You can redirect output to a file:
 FindObjectEntry.exe XComStrategyGame.upk XGFacility_PsiLabs.TPsiTrainee > XGFacility_PsiLabs.TPsiTrainee.txt
 
-FindObjectEntry will now try to deserialize unknown objects. It shouldn't crash in case of wrong guess about
-object's data, but may output wrong or incomplete data sometimes. Anyway, it will output a warning about object's
+FindObjectEntry will try to deserialize unknown objects. It shouldn't crash in case of wrong guess about
+object's data, but may give wrong or incomplete data sometimes. It will give a warning about object's
 type being unknown.
 
 -----------------------------------------------------------------------------------------------------------------
     FindObjectByOffset
 -----------------------------------------------------------------------------------------------------------------
 
-This program is used to find an export object full name by specified offset.
+The program finds an export object full name by specified offset.
 
 Usage:
 FindObjectByOffset UnpackedResourceFile.upk offset
@@ -67,7 +77,7 @@ FindObjectByOffset UnpackedResourceFile.upk offset
     DeserializeAll
 -----------------------------------------------------------------------------------------------------------------
 
-This program is used to batch-deserialization of package Export Objects.
+The program performs batch-deserialization of all Export Objects inside a specified package.
 
 Usage:
 DeserializeAll UnpackedResourceFile.upk [NameMask]
@@ -86,10 +96,22 @@ map objects. But it is helpful in analysing TheWorld.PersistentLevel objects, as
 contain Default Properties only.
     
 -----------------------------------------------------------------------------------------------------------------
-    MoveExpandFunction
+    PatchUPK
 -----------------------------------------------------------------------------------------------------------------
 
-This program is used to move/expand specified function or to undo previous move/expand operation.
+An utility to apply UPK patches. For more information see PatchUPK_Readme.txt.
+
+Usage:
+PatchUPK modfile.txt [PATH_TO_UPK]
+    modfile.txt — mod script (see PatchUPK_Readme.txt and PatchUPK_Mod_Example.txt)
+    PATH_TO_UPK — path to folder where packages are located (optional parameter)
+
+
+-----------------------------------------------------------------------------------------------------------------
+    MoveExpandFunction (Deprecated)
+-----------------------------------------------------------------------------------------------------------------
+
+The program performs move/expand operations for a specified function. Can undo previous move/expand operation.
 
 Usage:
 MoveExpandFunction UnpackedResourceFile.upk FunctionName [NewFunctionSize or /u]
@@ -102,37 +124,13 @@ MoveExpandFunction.exe XComStrategyGame.upk XGStrategyAI.GetAltWeapon 300
 MoveExpandFunction.exe XComStrategyGame.upk XGStrategyAI.GetAltWeapon /u
 
 -----------------------------------------------------------------------------------------------------------------
-    PatchUPK
------------------------------------------------------------------------------------------------------------------
-
-This program is used to apply package patches. For more information see PatchUPK_Readme.txt.
-
-Usage:
-PatchUPK modfile.txt [PATH_TO_UPK]
-    modfile.txt — mod script (see PatchUPK_Readme.txt and PatchUPK_Mod_Example.txt)
-    PATH_TO_UPK — path to folder, where packages are stored (optional parameter)
-
-
------------------------------------------------------------------------------------------------------------------
     CompareUPK
 -----------------------------------------------------------------------------------------------------------------
 
-A program to compare packages. Useful for analysing patches. Slow. Really slow. :)
+An utility to compare packages. Useful for analysing patches. Slow. Really slow. :)
 
 Usage:
 CompareUPK OldPackage.upk NewPackage.upk
-
------------------------------------------------------------------------------------------------------------------
-    DecompressLZO
------------------------------------------------------------------------------------------------------------------
-
-An utility to decompress upk files using LZO compression algorithm.
-
-Usage: DecompressLZO CompressedResourceFile.upk
-
-Decompressed package is saved to CompressedResourceFile.upk.uncompr file.
-
-Works with compressed and fully compressed packages.
 
 -----------------------------------------------------------------------------------------------------------------
     XComLZO

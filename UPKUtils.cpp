@@ -49,6 +49,7 @@ std::vector<char> UPKUtils::GetExportData(uint32_t idx)
     data.resize(ExportTable[idx].SerialSize);
     UPKFile.seekg(ExportTable[idx].SerialOffset);
     UPKFile.read(data.data(), data.size());
+    LastAccessedExportObjIdx = idx;
     return data;
 }
 

@@ -76,6 +76,22 @@
 				<Option compiler="gcc" />
 				<Option parameters="XComStrategyGame.upk" />
 			</Target>
+			<Target title="UENativeTablesReader">
+				<Option output="bin/UENativeTablesReader" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/UENativeTablesReader" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
+			<Target title="HexToPseudoCode">
+				<Option output="bin/HexToPseudoCode" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/HexToPseudoCode" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="XComStrategyGame.upk" />
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-O2" />
@@ -101,6 +117,9 @@
 		<Unit filename="FindObjectEntry.cpp">
 			<Option target="FindObjectEntry" />
 		</Unit>
+		<Unit filename="HexToPseudoCode.cpp">
+			<Option target="HexToPseudoCode" />
+		</Unit>
 		<Unit filename="ModParser.cpp">
 			<Option target="PatchUPK" />
 		</Unit>
@@ -119,44 +138,95 @@
 		<Unit filename="PatchUPK.cpp">
 			<Option target="PatchUPK" />
 		</Unit>
-		<Unit filename="UFlags.h" />
+		<Unit filename="UENativeTablesReader.cpp">
+			<Option target="UENativeTablesReader" />
+		</Unit>
+		<Unit filename="UFlags.h">
+			<Option target="ExtractNameLists" />
+			<Option target="FindObjectEntry" />
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+			<Option target="FindObjectByOffset" />
+			<Option target="DeserializeAll" />
+			<Option target="CompareUPK" />
+			<Option target="DecompressLZO" />
+			<Option target="HexToPseudoCode" />
+		</Unit>
 		<Unit filename="UObject.cpp">
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
+			<Option target="HexToPseudoCode" />
 		</Unit>
 		<Unit filename="UObject.h">
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
+			<Option target="HexToPseudoCode" />
 		</Unit>
 		<Unit filename="UObjectFactory.cpp">
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
+			<Option target="HexToPseudoCode" />
 		</Unit>
 		<Unit filename="UObjectFactory.h">
 			<Option target="FindObjectEntry" />
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
+			<Option target="HexToPseudoCode" />
 		</Unit>
-		<Unit filename="UPKInfo.cpp" />
-		<Unit filename="UPKInfo.h" />
+		<Unit filename="UPKInfo.cpp">
+			<Option target="ExtractNameLists" />
+			<Option target="FindObjectEntry" />
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+			<Option target="FindObjectByOffset" />
+			<Option target="DeserializeAll" />
+			<Option target="CompareUPK" />
+			<Option target="DecompressLZO" />
+			<Option target="HexToPseudoCode" />
+		</Unit>
+		<Unit filename="UPKInfo.h">
+			<Option target="ExtractNameLists" />
+			<Option target="FindObjectEntry" />
+			<Option target="PatchUPK" />
+			<Option target="MoveExpandFunction" />
+			<Option target="FindObjectByOffset" />
+			<Option target="DeserializeAll" />
+			<Option target="CompareUPK" />
+			<Option target="DecompressLZO" />
+			<Option target="HexToPseudoCode" />
+		</Unit>
 		<Unit filename="UPKUtils.cpp">
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="FindObjectEntry" />
 			<Option target="DeserializeAll" />
+			<Option target="HexToPseudoCode" />
 		</Unit>
 		<Unit filename="UPKUtils.h">
 			<Option target="PatchUPK" />
 			<Option target="MoveExpandFunction" />
 			<Option target="FindObjectEntry" />
 			<Option target="DeserializeAll" />
+			<Option target="HexToPseudoCode" />
+		</Unit>
+		<Unit filename="UToken.cpp">
+			<Option target="HexToPseudoCode" />
+		</Unit>
+		<Unit filename="UToken.h">
+			<Option target="HexToPseudoCode" />
+		</Unit>
+		<Unit filename="UTokenFactory.cpp">
+			<Option target="HexToPseudoCode" />
+		</Unit>
+		<Unit filename="UTokenFactory.h">
+			<Option target="HexToPseudoCode" />
 		</Unit>
 		<Unit filename="lzoconf.h">
 			<Option target="DecompressLZO" />

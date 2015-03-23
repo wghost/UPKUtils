@@ -145,6 +145,7 @@ protected:
     bool IsHEX(std::string word);
     bool IsToken(std::string word);
     bool IsCommand(std::string word);
+    bool IsMarker(std::string word);
     std::string TokenToHEX(std::string Token, unsigned* MemSizeRef = nullptr);
 };
 
