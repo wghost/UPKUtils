@@ -28,14 +28,14 @@ Usage:
 ExtractNameLists UnpackedResourceFile.upk [/v]
     /v — verbose mode (optional parameter)
 Examples:
-ExtractNameLists.exe XComStrategyGame.upk
-ExtractNameLists.exe XComStrategyGame.upk /v
+ExtractNameLists XComStrategyGame.upk
+ExtractNameLists XComStrategyGame.upk /v
     
 To redirect output from the console to a text file type:
 ExtractNameLists UnpackedResourceFile.upk > file_name.txt
 Examples:
-ExtractNameLists.exe XComStrategyGame.upk > XComStrategyGame.txt
-ExtractNameLists.exe XComStrategyGame.upk /v > XComStrategyGame.txt
+ExtractNameLists XComStrategyGame.upk > XComStrategyGame.txt
+ExtractNameLists XComStrategyGame.upk /v > XComStrategyGame.txt
 
 This will redirect output to file_name.txt. Error messages will still be printed into the console.
 
@@ -54,14 +54,31 @@ FindObjectEntry UnpackedResourceFile.upk ObjectName [/d]
     /d — dump object serialized data into binary file. File name will have Owner.Owner...Name.Type format.
         (optional parameter)
 Example:
-FindObjectEntry.exe XComStrategyGame.upk XGFacility_PsiLabs.TPsiTrainee
+FindObjectEntry XComStrategyGame.upk XGFacility_PsiLabs.TPsiTrainee
 
 You can redirect output to a file:
-FindObjectEntry.exe XComStrategyGame.upk XGFacility_PsiLabs.TPsiTrainee > XGFacility_PsiLabs.TPsiTrainee.txt
+FindObjectEntry XComStrategyGame.upk XGFacility_PsiLabs.TPsiTrainee > XGFacility_PsiLabs.TPsiTrainee.txt
 
 FindObjectEntry will try to deserialize unknown objects. It shouldn't crash in case of wrong guess about
 object's data, but may give wrong or incomplete data sometimes. It will give a warning about object's
 type being unknown.
+
+-----------------------------------------------------------------------------------------------------------------
+    HexToPseudoCode
+-----------------------------------------------------------------------------------------------------------------
+
+Converts hex bytecode to PatchUPK/PatcherGUI pseudo-code. Works with Functions and States. Decompiled script is
+directly usable by PatchUPK/PatcherGUI.
+
+Usage:
+HexToPseudoCode UnpackedResourceFile.upk ObjectName [/d]
+    ObjectName is a full object name: Owner.Owner...Name
+    /d — dump object serialized data into binary file. File name will have Owner.Owner...Name.Type format.
+        (optional parameter)
+Example:
+HexToPseudoCode XComStrategyGame.upk XGFundingCouncil.UpdateSlingshotMission >  XGFundingCouncil.UpdateSlingshotMission.txt
+
+This will create a file XGFundingCouncil.UpdateSlingshotMission.txt with decompiled code inside.
 
 -----------------------------------------------------------------------------------------------------------------
     FindObjectByOffset
@@ -120,8 +137,8 @@ MoveExpandFunction UnpackedResourceFile.upk FunctionName [NewFunctionSize or /u]
     /u switches the program into undo mode (optional parameter)
     
 Examples:
-MoveExpandFunction.exe XComStrategyGame.upk XGStrategyAI.GetAltWeapon 300
-MoveExpandFunction.exe XComStrategyGame.upk XGStrategyAI.GetAltWeapon /u
+MoveExpandFunction XComStrategyGame.upk XGStrategyAI.GetAltWeapon 300
+MoveExpandFunction XComStrategyGame.upk XGStrategyAI.GetAltWeapon /u
 
 -----------------------------------------------------------------------------------------------------------------
     CompareUPK
