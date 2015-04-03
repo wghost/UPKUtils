@@ -1913,6 +1913,12 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
     do
     {
         needSecondPass = false;
+        if (numPasses > 10)
+        {
+            *ErrorMessages << "Infinite loop detected (numPasses > 10)!" << std::endl;
+            SetBad();
+            return std::string("");
+        }
         if (numPasses != 0) /// no need to parse twice
         {
             WorkingData.str(ScriptHEX.str());
@@ -1998,6 +2004,12 @@ std::string ModScript::ParseScript(std::string ScriptData, unsigned* ScriptMemSi
                         {
                             ScriptHEX << NextWord << " ";
                             needSecondPass = true;
+                            if (numPasses != 0 && MarkerLabels.size() == 0)
+                            {
+                                *ErrorMessages << "Unresolved reference: " << NextWord << std::endl;
+                                SetBad();
+                                return std::string("");
+                            }
                         }
                     }
                     if (numPasses == 0)
