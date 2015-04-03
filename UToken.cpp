@@ -49,9 +49,12 @@ std::string UScriptCode::Deserialize(std::istream& stream, UPKInfo& info)
         }
         ExprMap[MemorySize] = "/*(" + FormatHEX(MemorySize) + "/" + FormatHEX(SerialSize) + ")*/ "
                             + MakeIndents(numIndents) + ExprResult + "\n";
-        if (ScrExpr.IsJump() && ScrExpr.GetJumpOffset() > MemorySize && ScrExpr.GetJumpOffset() != 0xFFFF) /// add indentation
+        if (ScrExpr.IsJump() && ScrExpr.GetJumpOffset() != 0xFFFF) /// save jump labels
         {
-            numIndents += ScrExpr.GetType() != UToken::Jump;
+            if (ScrExpr.GetJumpOffset() > MemorySize) /// add indentations
+            {
+                numIndents += ScrExpr.GetType() != UToken::Jump;
+            }
             JumpMap[ScrExpr.GetJumpOffset()] += ScrExpr.GetType() != UToken::Jump;
         }
         SerialSize += ScrExpr.GetSerialSize();
