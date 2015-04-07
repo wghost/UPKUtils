@@ -133,7 +133,7 @@ bool UPKInfo::Read(std::istream& stream)
         Summary.UnknownDataChunk.resize(Summary.NameOffset - stream.tellg());
     }
     /// for compressed packages unknown data is located between last CompressedChunk entry and first compressed data
-    else if (Summary.NumCompressedChunks > 0 && Summary.NameOffset - stream.tellg() > 0)
+    else if (Summary.NumCompressedChunks > 0 && Summary.CompressedChunks[0].CompressedOffset - stream.tellg() > 0)
     {
         Summary.UnknownDataChunk.resize(Summary.CompressedChunks[0].CompressedOffset - stream.tellg());
     }
