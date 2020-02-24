@@ -1,4 +1,5 @@
 #include "UPKUtils.h"
+#include "LzoUtils.h"
 
 #include <cstring>
 #include <sstream>
@@ -10,24 +11,42 @@ uint8_t PatchUPKhash [] = {0x7A, 0xA0, 0x56, 0xC9,
 
 UPKUtils::UPKUtils(const char* filename)
 {
-    if (UPKUtils::Read(filename) == false && UPKFile.is_open())
-    {
-        UPKFile.close();
-    }
+    UPKUtils::Read(filename);
+}
+
+UPKUtils::~UPKUtils()
+{
+    ///ugly, but for compatibility reasons: don't want to rewrite other tools yet
+    if (AutosaveOn)
+        UPKUtils::SaveOnDisk();
 }
 
 bool UPKUtils::Read(const char* filename)
 {
     UPKFileName = filename;
-    if (UPKFile.is_open())
-    {
-        UPKFile.close();
-        UPKFile.clear();
-    }
-    UPKFile.open(UPKFileName, std::ios::binary | std::ios::in | std::ios::out);
-    if (!UPKFile.is_open())
+    std::ifstream file(UPKFileName, std::ios::binary);
+    if (!file)
         return false;
+    UPKFile.str("");
+    UPKFile << file.rdbuf();
+    file.close();
     return UPKUtils::Reload();
+}
+
+bool UPKUtils::SaveFileAs(const char* filename)
+{
+    UPKFileName = filename;
+    return UPKUtils::SaveOnDisk();
+}
+
+bool UPKUtils::SaveOnDisk()
+{
+    std::ofstream file(UPKFileName, std::ios::binary);
+    if (!file)
+        return false;
+    file.write(UPKFile.str().data(), UPKFile.str().size());
+    file.close();
+    return true;
 }
 
 bool UPKUtils::Reload()
@@ -38,7 +57,49 @@ bool UPKUtils::Reload()
     UPKFile.seekg(0, std::ios::end);
     UPKFileSize = UPKFile.tellg();
     UPKFile.seekg(0);
-    return UPKInfo::Read(UPKFile);
+    if (!UPKInfo::Read(UPKFile))
+        return UPKInfo::ReadCompressedHeader(UPKFile);
+    return true;
+}
+
+bool UPKUtils::DecompressPackage(const char* decompFileName)
+{
+    if (!IsLoaded())
+        return false;
+    if (!IsLzoCompressed())
+        return false;
+    unsigned int NumCompressedChunks = Summary.NumCompressedChunks;
+    std::stringstream decompressed_stream;
+    if (IsFullyCompressed())
+        NumCompressedChunks = 1;
+    else
+    {
+        ///reset flags
+        Summary.CompressionFlags = 0;
+        Summary.PackageFlags &= ~((uint32_t)UPackageFlags::Compressed);
+        Summary.NumCompressedChunks = 0;
+        ///write new summary
+        std::vector<char> summaryData = SerializeSummary();
+        decompressed_stream.write(summaryData.data(), summaryData.size());
+    }
+    ///decompress
+    for (unsigned int i = 0; i < NumCompressedChunks; ++i)
+    {
+        if (IsFullyCompressed())
+            UPKFile.seekg(0);
+        else
+            UPKFile.seekg(Summary.CompressedChunks[i].CompressedOffset);
+        std::vector<char> dataChunk;
+        DecompressLzoCompressedDataFromStream(UPKFile, dataChunk);
+        ///write decompressed data
+        decompressed_stream.write(dataChunk.data(), dataChunk.size());
+    }
+    ///reset and reload the package
+    if (std::string(decompFileName) != "")
+        UPKFileName = decompFileName;
+    UPKFile.str("");
+    UPKFile << decompressed_stream.str();
+    return Reload();
 }
 
 std::vector<char> UPKUtils::GetExportData(uint32_t idx)
@@ -51,6 +112,22 @@ std::vector<char> UPKUtils::GetExportData(uint32_t idx)
     UPKFile.read(data.data(), data.size());
     LastAccessedExportObjIdx = idx;
     return data;
+}
+
+std::string UPKUtils::GetUObjectSerializedData(uint32_t idx)
+{
+    ///returns just the UObject part of export data: next object ref + defaultproperties list
+    if (idx < 1 || idx >= ExportTable.size() || NoneIdx <= 0)
+        return "";
+    UNameIndex NameIdx = NoneToUNameIndex();
+    std::string noneStr(reinterpret_cast<char*>(&NameIdx), 8);
+    std::vector<char> exportData = GetExportData(idx);
+    std::string exportDataStr(exportData.data(), exportData.size());
+    size_t pos = exportDataStr.find(noneStr);
+    if (pos == std::string::npos)
+        return "";
+    exportDataStr.resize(pos + 8);
+    return exportDataStr;
 }
 
 void UPKUtils::SaveExportData(uint32_t idx)
@@ -228,6 +305,31 @@ std::string UPKUtils::Deserialize(UObjectReference ObjRef, bool TryUnsafe, bool 
     return res;
 }
 
+UObject* UPKUtils::DeserializeObjectByRef(UObjectReference ObjRef, bool DoNotReadTFC)
+{
+    if (ObjRef < 1 || ObjRef >= (int)ExportTable.size())
+        return nullptr;
+    UObject* ExportObject;
+    if (ExportTable[ObjRef].ObjectFlagsH & (uint32_t)UObjectFlagsH::PropertiesObject)
+    {
+        ExportObject = UObjectFactory::Create(GlobalType::UObject);
+    }
+    else
+    {
+        ExportObject = UObjectFactory::Create(ExportTable[ObjRef].Type);
+    }
+    if (ExportObject == nullptr)
+        return nullptr;
+    UPKFile.seekg(ExportTable[ObjRef].SerialOffset);
+    ExportObject->SetRef(ObjRef);
+    ExportObject->SetUnsafe(false);
+    ExportObject->SetQuickMode(false);
+    if (dynamic_cast<UTexture2D*>(ExportObject) != nullptr)
+        dynamic_cast<UTexture2D*>(ExportObject)->SetDoNotReadTFC(DoNotReadTFC);
+    ExportObject->Deserialize(UPKFile, *dynamic_cast<UPKInfo*>(this));
+    return ExportObject;
+}
+
 bool UPKUtils::CheckValidFileOffset(size_t offset)
 {
     if (IsLoaded() == false)
@@ -298,7 +400,7 @@ bool UPKUtils::WriteData(size_t offset, std::vector<char> data, std::vector<char
 std::vector<char> UPKUtils::GetBulkData(size_t offset, std::vector<char> data)
 {
     UBulkDataMirror DataMirror;
-    DataMirror.SetBulkData(data);
+    DataMirror.SetBulkDataRaw(data);
     DataMirror.SetFileOffset(offset + DataMirror.GetBulkDataRelOffset());
     std::string mirrorStr = DataMirror.Serialize();
     std::vector<char> mirrorVec(mirrorStr.size());
@@ -426,6 +528,49 @@ size_t UPKUtils::GetScriptRelOffset(uint32_t idx)
     return ScriptRelOffset;
 }
 
+bool UPKUtils::ReplacePropertyValue(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr)
+{
+    std::string propString = prop.Serialize(*dynamic_cast<UPKInfo*>(this));
+    std::string propHeaderString(propString.begin(), propString.begin() + prop.GetInnerValueOffset(GetVersion()));
+    size_t pos = exportDataStr.find(propHeaderString);
+    if (pos == std::string::npos)
+        return false;
+    pos += propHeaderString.size();
+    std::string propValueString(propString.begin() + propHeaderString.size(), propString.end());
+    exportDataStr.replace(pos, propValueString.size(), propValueString);
+    return true;
+}
+
+bool UPKUtils::RemoveProperty(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr)
+{
+    std::string propString = prop.Serialize(*dynamic_cast<UPKInfo*>(this));
+    std::string propHeaderString(propString.begin(), propString.begin() + prop.GetInnerValueOffset(GetVersion()));
+    size_t pos = exportDataStr.find(propHeaderString);
+    if (pos == std::string::npos)
+        return false;
+    exportDataStr.erase(pos, propString.size());
+    return true;
+}
+
+bool UPKUtils::InsertProperty(UDefaultProperty prop, UDefaultProperty beforeProp, uint32_t idx, std::string& exportDataStr)
+{
+    std::string propString = prop.Serialize(*dynamic_cast<UPKInfo*>(this));
+    std::string beforePropString = beforeProp.Serialize(*dynamic_cast<UPKInfo*>(this));
+    std::string propHeaderString(beforePropString.begin(), beforePropString.begin() + beforeProp.GetInnerValueOffset(GetVersion()));
+    size_t pos = exportDataStr.find(propHeaderString);
+    if (pos == std::string::npos)
+        return false;
+    exportDataStr.insert(pos, propString);
+    return true;
+}
+
+bool UPKUtils::InsertProperty(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr)
+{
+    UDefaultProperty beforeProp;
+    beforeProp.MakeNameProperty("None", "", *dynamic_cast<UPKInfo*>(this));
+    return InsertProperty(prop, beforeProp, idx, exportDataStr);
+}
+
 bool UPKUtils::ResizeInPlace(uint32_t idx, int newObjectSize, int resizeAt)
 {
     if (!UPKFile.good())
@@ -463,8 +608,7 @@ bool UPKUtils::ResizeInPlace(uint32_t idx, int newObjectSize, int resizeAt)
     /// serialize header
     std::vector<char> serializedHeader = SerializeHeader();
     /// rewrite package
-    UPKFile.close();
-    UPKFile.open(UPKFileName.c_str(), std::ios::binary | std::ios::out | std::ios::trunc);
+    UPKFile.str("");
     /// write serialized header
     UPKFile.write(serializedHeader.data(), serializedHeader.size());
     /// write serialized export data before resized object
@@ -480,8 +624,7 @@ bool UPKUtils::ResizeInPlace(uint32_t idx, int newObjectSize, int resizeAt)
         UPKFile.write(serializedDataAfterIdx.data(), serializedDataAfterIdx.size());
     }
     /// reload package
-    UPKUtils::Read(UPKFileName.c_str());
-    return true;
+    return Reload();
 }
 
 bool UPKUtils::AddNameEntry(FNameEntry Entry)
@@ -779,7 +922,7 @@ bool UPKUtils::Deserialize(FObjectExport& entry, std::vector<char>& data)
     return true;
 }
 
-std::vector<char> UPKUtils::SerializeHeader()
+std::vector<char> UPKUtils::SerializeSummary()
 {
     std::stringstream ss;
     ss.write(reinterpret_cast<char*>(&Summary.Signature), 4);
@@ -799,10 +942,13 @@ std::vector<char> UPKUtils::SerializeHeader()
     ss.write(reinterpret_cast<char*>(&Summary.ImportCount), 4);
     ss.write(reinterpret_cast<char*>(&Summary.ImportOffset), 4);
     ss.write(reinterpret_cast<char*>(&Summary.DependsOffset), 4);
-    ss.write(reinterpret_cast<char*>(&Summary.SerialOffset), 4);
-    ss.write(reinterpret_cast<char*>(&Summary.Unknown2), 4);
-    ss.write(reinterpret_cast<char*>(&Summary.Unknown3), 4);
-    ss.write(reinterpret_cast<char*>(&Summary.Unknown4), 4);
+    if (Summary.Version >= VER_BATMAN_CITY)
+    {
+        ss.write(reinterpret_cast<char*>(&Summary.SerialOffset), 4);
+        ss.write(reinterpret_cast<char*>(&Summary.Unknown2), 4);
+        ss.write(reinterpret_cast<char*>(&Summary.Unknown3), 4);
+        ss.write(reinterpret_cast<char*>(&Summary.Unknown4), 4);
+    }
     ss.write(reinterpret_cast<char*>(&Summary.GUID), sizeof(Summary.GUID));
     ss.write(reinterpret_cast<char*>(&Summary.GenerationsCount), 4);
     for (unsigned i = 0; i < Summary.GenerationsCount; ++i)
@@ -828,6 +974,16 @@ std::vector<char> UPKUtils::SerializeHeader()
     {
         ss.write(Summary.UnknownDataChunk.data(), Summary.UnknownDataChunk.size());
     }
+    std::vector<char> ret(ss.tellp());
+    ss.read(ret.data(), ret.size());
+    return ret;
+}
+
+std::vector<char> UPKUtils::SerializeHeader()
+{
+    std::vector<char> ret = SerializeSummary();
+    ///serialize the rest of the header
+    std::stringstream ss;
     for (unsigned i = 0; i < Summary.NameCount; ++i)
     {
         FNameEntry Entry = NameTable[i];
@@ -857,6 +1013,8 @@ std::vector<char> UPKUtils::SerializeHeader()
         ss.write(reinterpret_cast<char*>(&Entry.ArchetypeRef), sizeof(Entry.ArchetypeRef));
         ss.write(reinterpret_cast<char*>(&Entry.ObjectFlagsH), sizeof(Entry.ObjectFlagsH));
         ss.write(reinterpret_cast<char*>(&Entry.ObjectFlagsL), sizeof(Entry.ObjectFlagsL));
+        if (Summary.Version == VER_BATMAN_CITY)
+            ss.write(reinterpret_cast<char*>(&Entry.Unknown2), sizeof(Entry.Unknown2));
         ss.write(reinterpret_cast<char*>(&Entry.SerialSize), sizeof(Entry.SerialSize));
         ss.write(reinterpret_cast<char*>(&Entry.SerialOffset), sizeof(Entry.SerialOffset));
         ss.write(reinterpret_cast<char*>(&Entry.ExportFlags), sizeof(Entry.ExportFlags));
@@ -872,7 +1030,8 @@ std::vector<char> UPKUtils::SerializeHeader()
     {
         ss.write(DependsBuf.data(), DependsBuf.size());
     }
-    std::vector<char> ret(ss.tellp());
-    ss.read(ret.data(), ret.size());
+    uint32_t summarySize = ret.size(), tablesSize = ss.tellp();
+    ret.resize(summarySize + tablesSize);
+    ss.read(ret.data() + summarySize, tablesSize);
     return ret;
 }

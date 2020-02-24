@@ -6,7 +6,7 @@ using namespace std;
 
 int main(int argN, char* argV[])
 {
-    cout << "FindObjectEntry" << endl;
+    cout << "FindObjectEntry by wghost81 aka Wasteland Ghost" << endl;
 
     if (argN < 3 || argN > 4)
     {

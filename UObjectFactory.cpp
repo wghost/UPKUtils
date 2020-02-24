@@ -114,6 +114,18 @@ GlobalType UObjectFactory::NameToType(std::string name)
     {
         return GlobalType::ULevel;
     }
+	else if (name == "Surface")
+    {
+        return GlobalType::USurface;
+    }
+	else if (name == "Texture")
+    {
+        return GlobalType::UTexture;
+    }
+	else if (name == "Texture2D")
+    {
+        return GlobalType::UTexture2D;
+    }
     else
     {
         return GlobalType::UObjectUnknown;
@@ -234,6 +246,18 @@ UObject* UObjectFactory::Create(GlobalType Type)
 	else if (Type == GlobalType::ULevel)
     {
         return new ULevel;
+    }
+	else if (Type == GlobalType::USurface)
+    {
+        return new USurface;
+    }
+	else if (Type == GlobalType::UTexture)
+    {
+        return new UTexture;
+    }
+	else if (Type == GlobalType::UTexture2D)
+    {
+        return new UTexture2D;
     }
     else
     {

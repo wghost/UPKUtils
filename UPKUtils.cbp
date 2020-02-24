@@ -92,6 +92,27 @@
 				<Option compiler="gcc" />
 				<Option parameters="XComStrategyGame.upk" />
 			</Target>
+			<Target title="ExportTexturesToDDS">
+				<Option output="bin/ExportTexturesToDDS" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/ExportTexturesToDDS" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="ParseTfc">
+				<Option output="bin/ParseTfc" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/ParseTfc" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="ImportTexturesFromDDS">
+				<Option output="bin/ImportTexturesFromDDS" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/" />
+				<Option object_output="obj/ImportTexturesFromDDS" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-O2" />
@@ -102,14 +123,41 @@
 		<Unit filename="CompareUPK.cpp">
 			<Option target="CompareUPK" />
 		</Unit>
+		<Unit filename="CustomTFC.cpp">
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="FindObjectEntry" />
+			<Option target="DeserializeAll" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
+		</Unit>
+		<Unit filename="CustomTFC.h">
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="FindObjectEntry" />
+			<Option target="DeserializeAll" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
+		</Unit>
 		<Unit filename="DecompressLZO.cpp">
 			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="DeserializeAll.cpp">
 			<Option target="DeserializeAll" />
 		</Unit>
+		<Unit filename="ExportTexturesToDDS.cpp">
+			<Option target="ExportTexturesToDDS" />
+		</Unit>
 		<Unit filename="ExtractNameLists.cpp">
 			<Option target="ExtractNameLists" />
+		</Unit>
+		<Unit filename="FileUtils.h">
+			<Option target="DecompressLZO" />
+			<Option target="ExportTexturesToDDS" />
 		</Unit>
 		<Unit filename="FindObjectByOffset.cpp">
 			<Option target="FindObjectByOffset" />
@@ -119,6 +167,31 @@
 		</Unit>
 		<Unit filename="HexToPseudoCode.cpp">
 			<Option target="HexToPseudoCode" />
+		</Unit>
+		<Unit filename="ImportTexturesFromDDS.cpp">
+			<Option target="ImportTexturesFromDDS" />
+		</Unit>
+		<Unit filename="LzoUtils.cpp">
+			<Option target="FindObjectEntry" />
+			<Option target="DeserializeAll" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
+		</Unit>
+		<Unit filename="LzoUtils.h">
+			<Option target="FindObjectEntry" />
+			<Option target="DeserializeAll" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
 		</Unit>
 		<Unit filename="ModParser.cpp">
 			<Option target="PatchUPK" />
@@ -135,12 +208,16 @@
 		<Unit filename="MoveExpandFunction.cpp">
 			<Option target="MoveExpandFunction" />
 		</Unit>
+		<Unit filename="ParseTfc.cpp">
+			<Option target="ParseTfc" />
+		</Unit>
 		<Unit filename="PatchUPK.cpp">
 			<Option target="PatchUPK" />
 		</Unit>
 		<Unit filename="UENativeTablesReader.cpp">
 			<Option target="UENativeTablesReader" />
 		</Unit>
+		<Unit filename="UFlags.cpp" />
 		<Unit filename="UFlags.h">
 			<Option target="ExtractNameLists" />
 			<Option target="FindObjectEntry" />
@@ -151,6 +228,8 @@
 			<Option target="CompareUPK" />
 			<Option target="DecompressLZO" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
 		</Unit>
 		<Unit filename="UObject.cpp">
 			<Option target="FindObjectEntry" />
@@ -158,6 +237,9 @@
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="UObject.h">
 			<Option target="FindObjectEntry" />
@@ -165,6 +247,9 @@
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="UObjectFactory.cpp">
 			<Option target="FindObjectEntry" />
@@ -172,6 +257,9 @@
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="UObjectFactory.h">
 			<Option target="FindObjectEntry" />
@@ -179,6 +267,9 @@
 			<Option target="MoveExpandFunction" />
 			<Option target="DeserializeAll" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="UPKInfo.cpp">
 			<Option target="ExtractNameLists" />
@@ -190,6 +281,8 @@
 			<Option target="CompareUPK" />
 			<Option target="DecompressLZO" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
 		</Unit>
 		<Unit filename="UPKInfo.h">
 			<Option target="ExtractNameLists" />
@@ -201,6 +294,8 @@
 			<Option target="CompareUPK" />
 			<Option target="DecompressLZO" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
 		</Unit>
 		<Unit filename="UPKUtils.cpp">
 			<Option target="PatchUPK" />
@@ -208,6 +303,9 @@
 			<Option target="FindObjectEntry" />
 			<Option target="DeserializeAll" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="UPKUtils.h">
 			<Option target="PatchUPK" />
@@ -215,31 +313,84 @@
 			<Option target="FindObjectEntry" />
 			<Option target="DeserializeAll" />
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="DecompressLZO" />
 		</Unit>
 		<Unit filename="UToken.cpp">
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
 		</Unit>
 		<Unit filename="UToken.h">
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
 		</Unit>
 		<Unit filename="UTokenFactory.cpp">
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
 		</Unit>
 		<Unit filename="UTokenFactory.h">
 			<Option target="HexToPseudoCode" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ImportTexturesFromDDS" />
+		</Unit>
+		<Unit filename="dds.cpp">
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
+		</Unit>
+		<Unit filename="dds.h">
+			<Option target="ExportTexturesToDDS" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
 		</Unit>
 		<Unit filename="lzoconf.h">
 			<Option target="DecompressLZO" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="DeserializeAll" />
+			<Option target="FindObjectEntry" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
 		</Unit>
 		<Unit filename="lzodefs.h">
 			<Option target="DecompressLZO" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="DeserializeAll" />
+			<Option target="FindObjectEntry" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
 		</Unit>
 		<Unit filename="minilzo.c">
 			<Option compilerVar="CC" />
 			<Option target="DecompressLZO" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="DeserializeAll" />
+			<Option target="FindObjectEntry" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
 		</Unit>
 		<Unit filename="minilzo.h">
 			<Option target="DecompressLZO" />
+			<Option target="ExportTexturesToDDS" />
+			<Option target="DeserializeAll" />
+			<Option target="FindObjectEntry" />
+			<Option target="ParseTfc" />
+			<Option target="ImportTexturesFromDDS" />
+			<Option target="MoveExpandFunction" />
+			<Option target="HexToPseudoCode" />
+			<Option target="PatchUPK" />
 		</Unit>
 		<Extensions>
 			<code_completion />

@@ -385,6 +385,7 @@ bool ModScript::OpenPackage(const std::string& Param)
         BackupScript.insert({ScriptState.UPKName, std::string("")});
     }
     *ExecutionResults << "Package opened successfully!\n";
+    ScriptState.Package.SetAutosave(true); ///dirty temp fix for packages now being fully in memory
     return SetGood();
 }
 

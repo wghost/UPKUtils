@@ -1,28 +1,326 @@
 #include "UObject.h"
+#include "LzoUtils.h"
 
 #include <sstream>
+#include <fstream>
+#include <cstring>
 
-void UBulkDataMirror::SetBulkData(std::vector<char> Data)
+bool UBulkDataMirror::IsDataCompressed()
+{
+    return SavedBulkDataFlags & (uint32_t)UBulkDataFlags::CompressedLzo || SavedBulkDataFlags & (uint32_t)UBulkDataFlags::CompressedLzx || SavedBulkDataFlags & (uint32_t)UBulkDataFlags::CompressedZlib;
+}
+
+bool UBulkDataMirror::IsDataStoredElsewhere()
+{
+    return SavedBulkDataFlags & (uint32_t)UBulkDataFlags::StoredInSeparateFile || SavedBulkDataFlags & (uint32_t)UBulkDataFlags::StoredAsSeparateData;
+}
+
+bool UBulkDataMirror::IsDataEmpty()
+{
+    return SavedBulkDataFlags & (uint32_t)UBulkDataFlags::EmptyData;
+}
+
+bool UBulkDataMirror::GetDataFlag(UBulkDataFlags flg)
+{
+    return SavedBulkDataFlags & (uint32_t)flg;
+}
+
+void UBulkDataMirror::SetDataFlag(UBulkDataFlags flg, bool val)
+{
+    if (val)
+        SavedBulkDataFlags |= (uint32_t)flg;
+    else
+        SavedBulkDataFlags &= ~((uint32_t)flg);
+}
+
+void UBulkDataMirror::ToggleDataFlag(UBulkDataFlags flg)
+{
+    SavedBulkDataFlags ^= (uint32_t)flg;
+}
+
+std::string UBulkDataMirror::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner)
+{
+    std::ostringstream ss;
+    stream.read(reinterpret_cast<char*>(&SavedBulkDataFlags), sizeof(SavedBulkDataFlags));
+    ss << "\tSavedBulkDataFlags = " << FormatHEX(SavedBulkDataFlags) << std::endl;
+    ss << FormatBulkDataFlags(SavedBulkDataFlags);
+    stream.read(reinterpret_cast<char*>(&SavedElementCount), 4);
+    ss << "\tSavedElementCount = " << FormatHEX(SavedElementCount) << " (" << SavedElementCount << ")" << std::endl;
+    stream.read(reinterpret_cast<char*>(&SavedBulkDataSizeOnDisk), 4);
+    ss << "\tSavedBulkDataSizeOnDisk = " << FormatHEX(SavedBulkDataSizeOnDisk) << " (" << SavedBulkDataSizeOnDisk << ")" << std::endl;
+    stream.read(reinterpret_cast<char*>(&SavedBulkDataOffsetInFile), 4);
+    ss << "\tSavedBulkDataOffsetInFile = " << FormatHEX(SavedBulkDataOffsetInFile) << std::endl;
+    if (IsDataEmpty())
+    {
+        ss << "\tBulk data is empty!\n";
+        BulkData.clear();
+    }
+    else if (GetDataFlag(UBulkDataFlags::StoredInSeparateFile))
+    {
+        ToggleDataFlag(UBulkDataFlags::StoredInSeparateFile);
+        WasInExternalFile = true;
+        if (externalFileName.size() > 0)
+        {
+            ss << "\tExternal file name " << externalFileName << "\n";
+            bool readRes = ReadDataChunkFromExternalFile();
+            if (!readRes)
+            {
+                ss << "\tBulk data: external file read error!\n";
+                BulkData.clear();
+                //BulkData.assign(SavedBulkDataSizeOnDisk, 0xCC);
+                SetDataFlag(UBulkDataFlags::EmptyData, true);
+            }
+        }
+        else if (!IsDataEmpty())
+        {
+            if (GetDataFlag(UBulkDataFlags::CompressedLzo))
+            {
+                BulkData.resize(SavedElementCount, 0xCC);
+                ToggleDataFlag(UBulkDataFlags::CompressedLzo);
+                WasCompressed = true;
+                SavedBulkDataSizeOnDisk = SavedElementCount;
+            }
+            else
+                BulkData.resize(SavedBulkDataSizeOnDisk, 0xCC);
+        }
+    }
+    else if (GetDataFlag(UBulkDataFlags::StoredAsSeparateData))
+    {
+        ToggleDataFlag(UBulkDataFlags::StoredAsSeparateData);
+        size_t currOffset = stream.tellg(); ///save curr offset
+        stream.seekg(SavedBulkDataOffsetInFile);
+        BulkData.resize(SavedBulkDataSizeOnDisk);
+        stream.read(BulkData.data(), BulkData.size());
+        stream.seekg(currOffset); ///go back
+        if (!stream.good())
+        {
+            ss << "Error deserializing bulk data: bad offset or data size!\n";
+            BulkData.clear();
+            SetDataFlag(UBulkDataFlags::EmptyData, true);
+            return ss.str();
+        }
+    }
+    else
+    {
+        size_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
+        if (SavedBulkDataOffsetInFile + SavedBulkDataSizeOnDisk > maxOffset)
+        {
+            ss << "Error deserializing bulk data: bad offset or data size!\n";
+            BulkData.clear();
+            SetDataFlag(UBulkDataFlags::EmptyData, true);
+            return ss.str();
+        }
+        BulkData.resize(SavedBulkDataSizeOnDisk);
+        stream.read(BulkData.data(), BulkData.size());
+    }
+    ss << "\tBulk data (" << SavedBulkDataSizeOnDisk << " bytes)\n";
+    //ss << "\tBulk data: " << FormatHEX(BulkData) << std::endl;
+    if (BulkData.size() > 0)
+    {
+        if (GetDataFlag(UBulkDataFlags::CompressedLzo))
+        {
+            ToggleDataFlag(UBulkDataFlags::CompressedLzo);
+            WasCompressed = true;
+            std::vector<char> decompessedData;
+            uint32_t decompressedSize = DecompressLzoCompressedRawData(BulkData, decompessedData);
+            ss << "\tDecompressed bulk data (" << decompressedSize << " bytes)\n";
+            if (decompressedSize == 0)
+            {
+                ss << "\tDecompression error: no decompressed data!\n";
+                BulkData.clear();
+                //BulkData.assign(SavedElementCount, 0xCC);
+                SetDataFlag(UBulkDataFlags::EmptyData, true);
+            }
+            else if (decompressedSize != SavedElementCount)
+            {
+                ss << "\tDecompressed data size mismatch!\n";
+                //BulkData = decompessedData;
+                //BulkData.resize(SavedElementCount, 0xCC);
+                BulkData.clear();
+                SetDataFlag(UBulkDataFlags::EmptyData, true);
+            }
+            else
+            {
+                ss << "\tDecompressed successfully!\n";
+                BulkData = decompessedData;
+            }
+            ///resetting sizes after decompression
+            SavedElementCount = BulkData.size();
+            SavedBulkDataSizeOnDisk = SavedElementCount;
+        }
+        else if (GetDataFlag(UBulkDataFlags::CompressedZlib) || GetDataFlag(UBulkDataFlags::CompressedLzx))
+        {
+            ss << "\tBulk data: Zlib/Lzx compression is not supported!\n";
+            BulkData.clear();
+            SetDataFlag(UBulkDataFlags::EmptyData, true);
+        }
+    }
+    return ss.str();
+}
+
+bool UBulkDataMirror::ReadDataChunkFromExternalFile()
+{
+    std::ifstream in(externalFileName, std::ios_base::binary);
+    if (!in.is_open())
+    {
+        std::cerr << "Bulk data: Cannot open external file!\n";
+        return false;
+    }
+    in.seekg(SavedBulkDataOffsetInFile);
+    BulkData.resize(SavedBulkDataSizeOnDisk);
+    in.read(reinterpret_cast<char*>(BulkData.data()), BulkData.size());
+    if (!in.good())
+    {
+        std::cerr << "Bulk data: External file read error!\n";
+        return false;
+    }
+    return true;
+}
+
+void UBulkDataMirror::SetEmpty()
+{
+    BulkData.clear();
+    SetDataFlag(UBulkDataFlags::EmptyData, true);
+    SavedElementCount = 0;
+    SavedBulkDataSizeOnDisk = 0xFFFFFFFF;
+    SavedBulkDataOffsetInFile = 0xFFFFFFFF;
+    LockFileOffset = false;
+}
+
+void UBulkDataMirror::SetBulkDataRaw(std::vector<char> Data)
 {
     BulkData = Data;
+    ///assuming uncompressed embedded data
     SavedBulkDataFlags = 0;
-    /// temporarily, until we know the exact meaning of this
     SavedElementCount = SavedBulkDataSizeOnDisk = BulkData.size();
-    SavedBulkDataOffsetInFile = 0;
+    SavedBulkDataOffsetInFile = 0xFFFFFFFF;
+    LockFileOffset = false;
 }
 
 std::string UBulkDataMirror::Serialize()
 {
     std::stringstream ss;
+    if (BulkData.size() <= 0 && !IsDataEmpty())
+        SetEmpty();
     ss.write(reinterpret_cast<char*>(&SavedBulkDataFlags), 4);
     ss.write(reinterpret_cast<char*>(&SavedElementCount), 4);
     ss.write(reinterpret_cast<char*>(&SavedBulkDataSizeOnDisk), 4);
     ss.write(reinterpret_cast<char*>(&SavedBulkDataOffsetInFile), 4);
-    if (BulkData.size() > 0)
+    if (BulkData.size() > 0 && !IsDataStoredElsewhere())
     {
         ss.write(BulkData.data(), BulkData.size());
     }
     return ss.str();
+}
+
+std::string UBulkDataMirror::Serialize(size_t offset)
+{
+    if (!LockFileOffset)
+        SavedBulkDataOffsetInFile = offset + GetBulkDataRelOffset();
+    return Serialize();
+}
+
+bool UBulkDataMirror::ExportToExternalFile(CustomTFC& T2DFile, std::string ObjName)
+{
+    if (externalFileName == "" || /*T2DFile.GetFilename() != externalFileName ||*/ !T2DFile.IsLoaded())
+        return false;
+
+    TFCInventoryEntry DataDescr;
+    DataDescr.SavedBulkDataSizeOnDisk = SavedBulkDataSizeOnDisk;
+    DataDescr.ObjectName = ObjName;
+    if (T2DFile.WriteData(DataDescr, BulkData))
+    {
+        SetDataFlag(UBulkDataFlags::StoredInSeparateFile, true);
+        SavedBulkDataOffsetInFile = DataDescr.SavedBulkDataOffsetInFile;
+        LockFileOffset = true;
+        return true;
+    }
+    else
+        return false;
+    /*std::ofstream extFile(externalFileName, std::ios_base::binary | std::ios_base::app | std::ios_base::ate);
+    if (!extFile.is_open())
+    {
+        std::cerr << "Bulk data: Cannot open external file!\n";
+        return false;
+    }
+    SetDataFlag(UBulkDataFlags::StoredInSeparateFile, true);
+    extFile.write(reinterpret_cast<char*>(BulkData.data()), BulkData.size());
+    SavedBulkDataOffsetInFile = (uint32_t)extFile.tellp() - (uint32_t)BulkData.size();
+    //std::cerr << "(uint32_t)extFile.tellp() = " << (uint32_t)extFile.tellp() << std::endl;
+    //std::cerr << "(uint32_t)BulkData.size() = " << (uint32_t)BulkData.size() << std::endl;
+    //std::cerr << "SavedBulkDataOffsetInFile = " << SavedBulkDataOffsetInFile << std::endl;
+    LockFileOffset = true;
+    if (!extFile.good())
+    {
+        std::cerr << "Bulk data: External file write error!\n";
+        SetEmpty();
+        return false;
+    }
+    ///zeros for alignment
+    uint32_t alignmentBlockSize = 0x8000;
+    if (extFile.tellp() % alignmentBlockSize)
+    {
+        std::vector<char> alignmentZeros(alignmentBlockSize - extFile.tellp() % alignmentBlockSize, 0x00);
+        extFile.write(reinterpret_cast<char*>(alignmentZeros.data()), alignmentZeros.size());
+    }
+    extFile.close();
+    return true;*/
+}
+
+bool UBulkDataMirror::TryLzoCompression()
+{
+    bool success = false;
+    if (BulkData.size() > 0 && !IsDataCompressed() && !DoNotCompress)
+    {
+        std::vector<char> CompressedBulkData;
+        if (LzoCompress(BulkData, CompressedBulkData) > 0)
+        {
+            SetDataFlag(UBulkDataFlags::CompressedLzo, true);
+            SavedElementCount = BulkData.size();
+            SavedBulkDataSizeOnDisk = CompressedBulkData.size();
+            BulkData = CompressedBulkData;
+            success = true;
+        }
+    }
+    return success;
+}
+
+uint32_t UBulkDataMirror::CalculateSerializedSize()
+{
+    uint32_t res = 0;
+    res += 16; /// at least 4 * 4 bytes of flags, element count, data size and data offset
+    if (!(SavedBulkDataFlags & (uint32_t)UBulkDataFlags::EmptyData ||
+          SavedBulkDataFlags & (uint32_t)UBulkDataFlags::StoredInSeparateFile ||
+          SavedBulkDataFlags & (uint32_t)UBulkDataFlags::StoredAsSeparateData))
+    {
+        res += BulkData.size();
+    }
+    return res;
+}
+
+std::string UTexture2DMipMap::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner)
+{
+    std::ostringstream ss;
+    ss << UBulkDataMirror::Deserialize(stream, info, owner);
+    stream.read(reinterpret_cast<char*>(&SizeX), sizeof(SizeX));
+    ss << "\tSizeX: " << FormatHEX(SizeX) << " (" << SizeX << ")" << std::endl;
+    stream.read(reinterpret_cast<char*>(&SizeY), sizeof(SizeY));
+    ss << "\tSizeY: " << FormatHEX(SizeY) << " (" << SizeY << ")" << std::endl;
+    return ss.str();
+}
+
+std::string UTexture2DMipMap::Serialize(size_t offset)
+{
+    std::ostringstream ss;
+    ss << UBulkDataMirror::Serialize(offset);
+    ss.write(reinterpret_cast<char*>(&SizeX), sizeof(SizeX));
+    ss.write(reinterpret_cast<char*>(&SizeY), sizeof(SizeY));
+    return ss.str();
+}
+
+uint32_t UTexture2DMipMap::CalculateSerializedSize()
+{
+    return sizeof(SizeX) + sizeof(SizeY) + UBulkDataMirror::CalculateSerializedSize();
 }
 
 std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe, bool quick)
@@ -40,6 +338,23 @@ std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& i
         DefaultProperties.push_back(Property);
     } while (Property.GetName() != "None" && stream.good() && (size_t)stream.tellg() < maxOffset);
     PropertySize = (unsigned)stream.tellg() - (unsigned)PropertyOffset;
+    return ss.str();
+}
+
+std::string BCArrayOfNames::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner)
+{
+    std::ostringstream ss;
+    ss << "BCArrayOfNames:\n";
+    stream.read(reinterpret_cast<char*>(&NamesNum), sizeof(NamesNum));
+    ss << "\tNamesNum = " << NamesNum << std::endl;
+    Names.resize(NamesNum);
+    for (unsigned i = 0; i < NamesNum; ++i)
+    {
+        UNameIndex nameIdx;
+        stream.read(reinterpret_cast<char*>(&nameIdx), sizeof(nameIdx));
+        Names[i] = nameIdx;
+        ss << "\tNameIdx: " << FormatHEX(nameIdx) << " -> " << info.IndexToName(nameIdx) << std::endl;
+    }
     return ss.str();
 }
 
@@ -66,14 +381,22 @@ std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, U
         Type = info.IndexToName(TypeIdx);
         if (Type == "BoolProperty")
         {
-            stream.read(reinterpret_cast<char*>(&BoolValue), sizeof(BoolValue));
+            if (info.GetVersion() >= VER_XCOM)
+            {
+                stream.read(reinterpret_cast<char*>(&BoolValue), sizeof(BoolValue));
+            }
+            else
+            {
+                stream.read(reinterpret_cast<char*>(&BoolValueOld), sizeof(BoolValueOld));
+                BoolValue = (uint8_t)BoolValueOld;
+            }
             ss << "\tBoolean value: " << FormatHEX(BoolValue) << " = ";
             if (BoolValue == 0)
                 ss << "false\n";
             else
                 ss << "true\n";
         }
-        if (Type == "StructProperty" || Type == "ByteProperty")
+        if (info.GetVersion() >= VER_XCOM && (Type == "StructProperty" || Type == "ByteProperty"))
         {
             stream.read(reinterpret_cast<char*>(&InnerNameIdx), sizeof(InnerNameIdx));
             ss << "\tInnerNameIdx: " << FormatHEX(InnerNameIdx) << " -> " << info.IndexToName(InnerNameIdx) << std::endl;
@@ -102,34 +425,30 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
     std::ostringstream ss;
     if (Type == "IntProperty")
     {
-        int32_t value;
-        stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-        ss << "\tInteger: " << FormatHEX((uint32_t)value) << " = " << value << std::endl;
+        stream.read(reinterpret_cast<char*>(&valueInt), sizeof(valueInt));
+        ss << "\tInteger: " << FormatHEX((uint32_t)valueInt) << " = " << valueInt << std::endl;
     }
     else if (Type == "FloatProperty")
     {
-        float value;
-        stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-        ss << "\tFloat: " << FormatHEX(value) << " = " << value << std::endl;
+        stream.read(reinterpret_cast<char*>(&valueFloat), sizeof(valueFloat));
+        ss << "\tFloat: " << FormatHEX(valueFloat) << " = " << valueFloat << std::endl;
     }
     else if (Type == "ObjectProperty" ||
              Type == "InterfaceProperty" ||
              Type == "ComponentProperty" ||
              Type == "ClassProperty")
     {
-        UObjectReference value;
-        stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-        ss << "\tObject: " << FormatHEX((uint32_t)value) << " = ";
-        if (value == 0)
+        stream.read(reinterpret_cast<char*>(&valueObjRef), sizeof(valueObjRef));
+        ss << "\tObject: " << FormatHEX((uint32_t)valueObjRef) << " = ";
+        if (valueObjRef == 0)
             ss << "none\n";
         else
-            ss << info.ObjRefToName(value) << std::endl;
+            ss << info.ObjRefToName(valueObjRef) << std::endl;
     }
     else if (Type == "NameProperty" || Type == "ByteProperty")
     {
-        UNameIndex value;
-        stream.read(reinterpret_cast<char*>(&value), sizeof(value));
-        ss << "\tName: " << FormatHEX(value) << " = " << info.IndexToName(value) << std::endl;
+        stream.read(reinterpret_cast<char*>(&valueNameIdx), sizeof(valueNameIdx));
+        ss << "\tName: " << FormatHEX(valueNameIdx) << " = " << info.IndexToName(valueNameIdx) << std::endl;
     }
     else if (Type == "StrProperty")
     {
@@ -138,9 +457,8 @@ std::string UDefaultProperty::DeserializeValue(std::istream& stream, UPKInfo& in
         ss << "\tStrLength = " << FormatHEX(StrLength) << " = " << StrLength << std::endl;
         if (StrLength > 0)
         {
-            std::string str;
-            getline(stream, str, '\0');
-            ss << "\tString = " << str << std::endl;
+            getline(stream, valueString, '\0');
+            ss << "\tString = " << valueString << std::endl;
         }
     }
     else if (Type == "ArrayProperty")
@@ -378,12 +696,136 @@ std::string UDefaultProperty::GuessArrayType(std::string ArrName)
     return "None";
 }
 
+void UDefaultProperty::MakeByteProperty(std::string name, std::string innerName, std::string value, UPKInfo& info)
+{
+    Name = name;
+    NameIdx = info.NameToUNameIndex(Name);
+    Type = "ByteProperty";
+    TypeIdx = info.NameToUNameIndex(Type);
+    PropertySize = 8;
+    ArrayIdx = 0;
+    if (info.GetVersion() >= VER_XCOM)
+        InnerNameIdx = info.NameToUNameIndex(innerName);
+    valueNameIdx = info.NameToUNameIndex(value);
+    InnerValue.resize(PropertySize);
+    memcpy(InnerValue.data(), reinterpret_cast<char*>(&valueNameIdx), sizeof(valueNameIdx));
+}
+
+void UDefaultProperty::MakeNameProperty(std::string name, std::string value, UPKInfo& info)
+{
+    Name = name;
+    NameIdx = info.NameToUNameIndex(Name);
+    Type = "NameProperty";
+    TypeIdx = info.NameToUNameIndex(Type);
+    PropertySize = 8;
+    ArrayIdx = 0;
+    valueNameIdx = info.NameToUNameIndex(value);
+    InnerValue.resize(PropertySize);
+    memcpy(InnerValue.data(), reinterpret_cast<char*>(&valueNameIdx), sizeof(valueNameIdx));
+}
+
+void UDefaultProperty::MakeIntProperty(std::string name, int32_t value, UPKInfo& info)
+{
+    Name = name;
+    NameIdx = info.NameToUNameIndex(Name);
+    Type = "IntProperty";
+    TypeIdx = info.NameToUNameIndex(Type);
+    PropertySize = 4;
+    ArrayIdx = 0;
+    valueInt = value;
+    InnerValue.resize(PropertySize);
+    memcpy(InnerValue.data(), reinterpret_cast<char*>(&valueInt), sizeof(valueInt));
+}
+
+void UDefaultProperty::MakeBoolProperty(std::string name, bool value, UPKInfo& info)
+{
+    Name = name;
+    NameIdx = info.NameToUNameIndex(Name);
+    Type = "BoolProperty";
+    TypeIdx = info.NameToUNameIndex(Type);
+    PropertySize = 0;
+    ArrayIdx = 0;
+    if (info.GetVersion() >= VER_XCOM)
+    {
+        BoolValue = (uint8_t)value;
+    }
+    else
+    {
+        BoolValueOld = (uint32_t)value;
+        BoolValue = (uint8_t)BoolValueOld;
+    }
+    InnerValue.clear();
+}
+
+std::string UDefaultProperty::Serialize(UPKInfo& info)
+{
+    ///not all the properties are yet added!
+    std::ostringstream ss;
+    ss.write(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
+    if (Name != "None")
+    {
+        ss.write(reinterpret_cast<char*>(&TypeIdx), sizeof(TypeIdx));
+        ss.write(reinterpret_cast<char*>(&PropertySize), sizeof(PropertySize));
+        ss.write(reinterpret_cast<char*>(&ArrayIdx), sizeof(ArrayIdx));
+        if (Type == "BoolProperty")
+        {
+            if (info.GetVersion() >= VER_XCOM)
+                ss.write(reinterpret_cast<char*>(&BoolValue), sizeof(BoolValue));
+            else
+                ss.write(reinterpret_cast<char*>(&BoolValueOld), sizeof(BoolValueOld));
+        }
+        else
+        {
+            if (Type == "StructProperty" || Type == "ByteProperty")
+            {
+                if (info.GetVersion() >= VER_XCOM)
+                    ss.write(reinterpret_cast<char*>(&InnerNameIdx), sizeof(InnerNameIdx));
+            }
+            if (InnerValue.size() > 0)
+                ss.write(InnerValue.data(), InnerValue.size());
+        }
+    }
+    return ss.str();
+}
+
+size_t UDefaultProperty::GetInnerValueOffset(uint16_t ver)
+{
+    if (Name == "None")
+    {
+        return 8;
+    }
+    else if (Type == "ByteProperty")
+    {
+        if (ver >= VER_XCOM)
+            return 32; ///8+8+4+4+8
+        return 24;
+    }
+    else
+    {
+        return 24; ///8+8+4+4
+    }
+}
+
 std::string UObject::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << "UObject:\n";
+    if (info.GetVersion() == VER_BATMAN_CITY)
+    {
+        stream.read(reinterpret_cast<char*>(&BCUnknown1), sizeof(BCUnknown1));
+        ss << "\tUnknown1 = " << FormatHEX((uint32_t)BCUnknown1) << std::endl;
+        stream.read(reinterpret_cast<char*>(&BCUnknown2), sizeof(BCUnknown2));
+        ss << "\tUnknown2 = " << FormatHEX((uint32_t)BCUnknown2) << std::endl;
+    }
     stream.read(reinterpret_cast<char*>(&ObjRef), sizeof(ObjRef));
     ss << "\tPrevObjRef = " << FormatHEX((uint32_t)ObjRef) << " -> " << info.ObjRefToName(ObjRef) << std::endl;
+    if (info.GetVersion() == VER_BATMAN_CITY)
+    {
+        ss << BCUnkNames.Deserialize(stream, info, ThisRef);
+        uint32_t pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
+        if (pos == info.GetExportEntry(ThisRef).SerialSize)
+            return ss.str();
+    }
     if (Type != GlobalType::UClass)
     {
         FObjectExport ThisTableEntry = info.GetExportEntry(ThisRef);
@@ -881,6 +1323,181 @@ std::string ULevel::Deserialize(std::istream& stream, UPKInfo& info)
     ss << "Stream relative position (debug info): " << FormatHEX(pos) << " (" << pos << ")\n";
     ss << "Object unknown, can't deserialize!\n";
     return ss.str();
+}
+
+std::string USurface::Deserialize(std::istream& stream, UPKInfo& info)
+{
+    std::ostringstream ss;
+    ss << UObject::Deserialize(stream, info);
+    return ss.str();
+}
+
+std::string UTexture::Deserialize(std::istream& stream, UPKInfo& info)
+{
+    std::ostringstream ss;
+    ss << USurface::Deserialize(stream, info);
+    return ss.str();
+}
+
+std::string UTexture2D::Deserialize(std::istream& stream, UPKInfo& info)
+{
+    std::ostringstream ss;
+    ss << UTexture::Deserialize(stream, info);
+
+    ///attempt to init vars from default property list
+    std::vector<UDefaultProperty> props = DefaultProperties.GetDefaultProperties();
+    for (unsigned i = 0; i < props.size(); ++i)
+    {
+        SetClassVarFromProperty(props[i], info);
+    }
+
+    ss << "UTexture2D:\n";
+
+    stream.read(reinterpret_cast<char*>(&Unknown1), sizeof(Unknown1));
+    ss << "\tUnknown1: " << FormatHEX(Unknown1) << std::endl;
+    stream.read(reinterpret_cast<char*>(&Unknown2), sizeof(Unknown2));
+    ss << "\tUnknown2: " << FormatHEX(Unknown2) << std::endl;
+    stream.read(reinterpret_cast<char*>(&Unknown3), sizeof(Unknown3));
+    ss << "\tUnknown3: " << FormatHEX(Unknown3) << std::endl;
+
+    size_t maxOffset = info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize;
+
+    uint32_t absOffset;
+    stream.read(reinterpret_cast<char*>(&absOffset), sizeof(absOffset));
+    ss << "\tBulk data absolute file offset: " << FormatHEX(absOffset) << " (" << absOffset << ")" << std::endl;
+    if (absOffset > maxOffset)
+    {
+        ss << "Error deserializing Texture2D: bulk data file offset out of bounds!\n";
+        return ss.str();
+    }
+
+    stream.read(reinterpret_cast<char*>(&MipMapCount), sizeof(MipMapCount));
+    ss << "\tNum of mipmaps stored: " << FormatHEX(MipMapCount) << " (" << MipMapCount << ")" << std::endl;
+
+    MipMaps.clear();
+    MipMaps.reserve(MipMapCount);
+    for (unsigned i = 0; i < MipMapCount; ++i)
+    {
+        UTexture2DMipMap nextData;
+        ss << "UTexture2DMipMap[" << i << "]:\n";
+        if (!DoNotReadTFC && !QuickMode)
+            nextData.SetExternalFileName(TextureFileCacheName + ".tfc");
+        ss << nextData.Deserialize(stream, info, ThisRef);
+        if (stream.tellg() > maxOffset)
+        {
+            ss << "Error deserializing Texture2D: offset out of bounds!\n";
+            return ss.str();
+        }
+        MipMaps.push_back(nextData);
+    }
+    MipMapCount = MipMaps.size();
+    if (MipMaps.size() > 0)
+    {
+        if (Width == 0)
+            Width = MipMaps[0].GetSizeX();
+        if (Height == 0)
+            Height = MipMaps[0].GetSizeY();
+        PitchOrLinearSize = MipMaps[0].GetSavedElementCount();
+    }
+    if (stream.tellg() < maxOffset)
+    {
+        UnknownData.resize(maxOffset - stream.tellg());
+        stream.read(UnknownData.data(), UnknownData.size());
+        ss << "\tUnknown data size: " << UnknownData.size() << std::endl;
+        ss << "\tUnknown data: " << FormatHEX(UnknownData) << std::endl;
+    }
+
+    return ss.str();
+}
+
+std::string UTexture2D::SerializeTexture2DData(size_t offset)
+{
+    std::stringstream ss;
+
+    ///Texture2D internal data format:
+    ///an empty bulk data chunk (12 zero bytes + 4 bytes of absolute file offset)
+    ///MipMapCount (4 bytes)
+    ///serialized MipMaps[MipMapCount]
+    ///unknown data
+
+    ss.write(reinterpret_cast<char*>(&Unknown1), 4);
+    ss.write(reinterpret_cast<char*>(&Unknown2), 4);
+    ss.write(reinterpret_cast<char*>(&Unknown3), 4);
+    ///absolute file offset for the data following this absolute file offset
+    size_t nextDataOffset = offset + ss.tellp() + 4;
+    ss.write(reinterpret_cast<char*>(&nextDataOffset), 4);
+    ss.write(reinterpret_cast<char*>(&MipMapCount), 4);
+
+    ///serialize MipMaps
+    for (unsigned i = 0; i < MipMapCount; ++i)
+    {
+        ss << MipMaps[i].Serialize(offset + ss.tellp());
+    }
+
+    ///serialize unknown data
+    if (UnknownData.size() > 0)
+        ss.write(UnknownData.data(), UnknownData.size());
+
+    return ss.str();
+}
+
+bool UTexture2D::ExportToExternalFile(CustomTFC& T2DFile, UPKInfo& info, bool compressedOnly)
+{
+    bool success = false;
+    for (unsigned i = 0; i < MipMapCount; ++i)
+    {
+        if (MipMaps[i].IsDataCompressed() || !compressedOnly)
+        {
+            MipMaps[i].SetExternalFileName(TextureFileCacheName + ".tfc");
+            success |= MipMaps[i].ExportToExternalFile(T2DFile, info.GetExportEntry(ThisRef).FullName);
+        }
+    }
+    return success;
+}
+
+bool UTexture2D::TryLzoCompression(int minResolution)
+{
+    bool success = false;
+    for (unsigned i = 0; i < MipMapCount; ++i)
+    {
+        if (minResolution < 0 || (int)MipMaps[i].GetSizeX() >= minResolution || (int)MipMaps[i].GetSizeY() >= minResolution)
+            success |= MipMaps[i].TryLzoCompression();
+    }
+    return success;
+}
+
+uint32_t UTexture2D::CalculateTexture2DDataSize()
+{
+    uint32_t res = 0;
+    res += 12 + 4 + 4; ///12 zero bytes + 4 bytes of absolute file offset + 4 bytes of MipMapCount
+    for (unsigned i = 0; i < MipMapCount; ++i)
+    {
+        res += MipMaps[i].CalculateSerializedSize();
+    }
+    res += UnknownData.size();
+    return res;
+}
+
+void UTexture2D::SetClassVarFromProperty(UDefaultProperty& property, UPKInfo& info)
+{
+    if (property.GetName() == "Format" && property.GetType() == "ByteProperty")
+        Format = info.IndexToName(property.GetValueNameIdx());
+    else if (property.GetName() == "LODGroup" && property.GetType() == "ByteProperty")
+        LODGroup = info.IndexToName(property.GetValueNameIdx());
+    else if (property.GetName() == "TextureFileCacheName" && property.GetType() == "NameProperty")
+        TextureFileCacheName = info.IndexToName(property.GetValueNameIdx());
+    else if (property.GetName() == "SizeX" && property.GetType() == "IntProperty")
+        Width = property.GetValueInt();
+    else if (property.GetName() == "SizeY" && property.GetType() == "IntProperty")
+        Height = property.GetValueInt();
+    else if (property.GetName() == "MipTailBaseIdx" && property.GetType() == "IntProperty")
+        MipTailBaseIdx = property.GetValueInt();
+    else if (property.GetName() == "LODBias" && property.GetType() == "IntProperty")
+        LODBias = property.GetValueInt();
+    else if (property.GetName() == "NeverStream" && property.GetType() == "BoolProperty")
+        NeverStream = property.GetValueBool();
+    else
+        UTexture::SetClassVarFromProperty(property, info);
 }
 
 std::string UObjectUnknown::Deserialize(std::istream& stream, UPKInfo& info)

@@ -3,25 +3,36 @@
 
 #include "UPKInfo.h"
 #include "UObjectFactory.h"
-#include <fstream>
+#include <sstream>
 
 class UPKUtils: public UPKInfo
 {
 public:
     UPKUtils() {}
-    ~UPKUtils() {}
+    ~UPKUtils();
     UPKUtils(const char* filename);
     /// Read package header
     bool Read(const char* filename);
+    bool SaveFileAs(const char* filename);
+    bool SaveOnDisk();
     bool Reload();
-    bool IsLoaded() { return (UPKFile.is_open() && UPKFile.good()); };
+    bool IsLoaded() { return (UPKFile.str() != "" && UPKFile.good()); };
     size_t GetFileSize() { return UPKFileSize; }
+    void SetAutosave (bool val) { AutosaveOn = val; }
+    /// Decompress and reload
+    bool DecompressPackage(const char* decompFileName = "");
     /// Extract serialized data
     std::vector<char> GetExportData(uint32_t idx);
+    std::string GetUObjectSerializedData(uint32_t idx);
     void SaveExportData(uint32_t idx);
     size_t GetScriptSize(uint32_t idx);
     size_t GetScriptMemSize(uint32_t idx);
     size_t GetScriptRelOffset(uint32_t idx);
+    /// Modify serialized data in memory
+    bool ReplacePropertyValue(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr);
+    bool RemoveProperty(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr);
+    bool InsertProperty(UDefaultProperty prop, UDefaultProperty beforeProp, uint32_t idx, std::string& exportDataStr);
+    bool InsertProperty(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr);
     /// Move/expand export object data (legacy functions for backward compatibility)
     bool MoveExportData(uint32_t idx, uint32_t newObjectSize = 0);
     bool UndoMoveExportData(uint32_t idx);
@@ -34,6 +45,7 @@ public:
     bool UndoMoveResizeObject(uint32_t idx);
     /// Deserialize
     std::string Deserialize(UObjectReference ObjRef, bool TryUnsafe = false, bool QuickMode = false);
+    UObject* DeserializeObjectByRef(UObjectReference ObjRef, bool DoNotReadTFC = false);
     bool Deserialize(FNameEntry& entry, std::vector<char>& data);
     bool Deserialize(FObjectImport& entry, std::vector<char>& data);
     bool Deserialize(FObjectExport& entry, std::vector<char>& data);
@@ -45,6 +57,7 @@ public:
     size_t FindDataChunk(std::vector<char> data, size_t beg = 0, size_t limit = 0);
     std::vector<char> GetBulkData(size_t offset, std::vector<char> data);
     /// UPK serialization
+    std::vector<char> SerializeSummary();
     std::vector<char> SerializeHeader();
     /// Aggressive patching functions
     bool AddNameEntry(FNameEntry Entry);
@@ -56,8 +69,9 @@ public:
     */
 private:
     std::string UPKFileName;
-    std::fstream UPKFile;
+    std::stringstream UPKFile;
     size_t UPKFileSize;
+    bool AutosaveOn = false;
 };
 
 #endif // UPKUTILS_H

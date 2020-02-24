@@ -8,7 +8,7 @@ using namespace std;
 
 int main(int argN, char* argV[])
 {
-    cout << "FindObjectByOffset" << endl;
+    cout << "FindObjectByOffset by wghost81 aka Wasteland Ghost" << endl;
 
     if (argN != 3)
     {

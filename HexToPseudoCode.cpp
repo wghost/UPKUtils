@@ -14,7 +14,7 @@ string GetFilename(string str)
 
 int main(int argN, char* argV[])
 {
-    //cout << "HexToPseudoCode" << endl;
+    //cout << "HexToPseudoCode by wghost81 aka Wasteland Ghost" << endl;
 
     if (argN < 3 || argN > 4)
     {

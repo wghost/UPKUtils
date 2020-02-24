@@ -1,6 +1,13 @@
 #ifndef UFLAGS_H_INCLUDED
 #define UFLAGS_H_INCLUDED
 
+#include <cstdio>
+#include <cstring>
+#include <cstdint>
+#include <string>
+#include <sstream>
+#include <vector>
+
 /// flags
 enum class UPackageFlags: uint32_t
 {
@@ -206,5 +213,38 @@ enum class UPropertyFlagsH: uint32_t
     CrossLevelPassive = 0x00001000,
     CrossLevelActive = 0x00002000
 };
+
+enum class UBulkDataFlags: uint32_t
+{
+    StoredInSeparateFile    = 0x00000001,
+    StoredAsSeparateData    = 0x00000040,
+    EmptyData               = 0x00000020,
+    CompressedZlib          = 0x00000002,
+    CompressedLzo           = 0x00000010,
+    CompressedLzx           = 0x00000080
+};
+
+/// helper functions
+std::string FormatHEX(uint32_t val);
+std::string FormatHEX(uint16_t val);
+std::string FormatHEX(uint8_t val);
+std::string FormatHEX(float val);
+std::string FormatHEX(uint32_t L, uint32_t H);
+std::string FormatHEX(std::vector<char> DataChunk);
+std::string FormatHEX(char* DataChunk, size_t size);
+std::string FormatHEX(std::string DataString);
+/// format flags
+std::string FormatPackageFlags(uint32_t flags);
+std::string FormatCompressionFlags(uint32_t flags);
+std::string FormatObjectFlagsL(uint32_t flags);
+std::string FormatObjectFlagsH(uint32_t flags);
+std::string FormatExportFlags(uint32_t flags);
+std::string FormatFunctionFlags(uint32_t flags);
+std::string FormatStructFlags(uint32_t flags);
+std::string FormatClassFlags(uint32_t flags);
+std::string FormatStateFlags(uint32_t flags);
+std::string FormatPropertyFlagsL(uint32_t flags);
+std::string FormatPropertyFlagsH(uint32_t flags);
+std::string FormatBulkDataFlags(uint32_t flags);
 
 #endif // UFLAGS_H_INCLUDED

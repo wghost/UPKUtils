@@ -8,7 +8,7 @@ using namespace std;
 
 int main(int argN, char* argV[])
 {
-    cout << "ExtractNameLists" << endl;
+    cout << "ExtractNameLists by wghost81 aka Wasteland Ghost" << endl;
 
     if (argN < 2 || argN > 3)
     {

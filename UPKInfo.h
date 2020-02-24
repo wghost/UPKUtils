@@ -11,6 +11,10 @@
 
 #include "UFlags.h"
 
+#define VER_XCOM 845
+#define VER_BATMAN 576
+#define VER_BATMAN_CITY 805
+
 enum class UPKReadErrors
 {
     NoErrors = 0,
@@ -46,8 +50,8 @@ struct FCompressedChunkBlock
 
 struct FCompressedChunkHeader
 {
-    uint32_t Signature;          // equals to PACKAGE_FILE_TAG (0x9E2A83C1)
-    uint32_t BlockSize;          // maximal size of uncompressed block, always the same
+    uint32_t Signature;          /// equals to PACKAGE_FILE_TAG (0x9E2A83C1)
+    uint32_t BlockSize;          /// maximum size of uncompressed block, always the same
     uint32_t CompressedSize;
     uint32_t UncompressedSize;
     uint32_t NumBlocks;
@@ -147,7 +151,8 @@ struct FObjectExport
     uint32_t         NetObjectCount;
     FGuid            GUID;
     uint32_t         Unknown1;
-    std::vector<uint32_t> NetObjects;     // 4 x NetObjectCount bytes of data
+    uint32_t         Unknown2;            /// batman city
+    std::vector<uint32_t> NetObjects;     /// 4 x NetObjectCount bytes of data
     /// memory
     size_t           EntryOffset;
     size_t           EntrySize;
@@ -169,11 +174,15 @@ class UPKInfo
         bool ReadCompressedHeader(std::istream& stream);
         /// helpers
         std::string IndexToName(UNameIndex idx);
+        UNameIndex NoneToUNameIndex();
+        UNameIndex NameToUNameIndex(std::string name);
         std::string ObjRefToName(UObjectReference ObjRef);
         std::string ResolveFullName(UObjectReference ObjRef);
         UObjectReference GetOwnerRef(UObjectReference ObjRef);
+        bool IsPropertiesObject(UObjectReference ObjRef);
         int FindName(std::string name);
         UObjectReference FindObject(std::string FullName, bool isExport = true);
+        UObjectReference FindObjectOfType(std::string FullName, std::string Type, bool isExport = true);
         UObjectReference FindObjectByName(std::string Name, bool isExport = true);
         UObjectReference FindObjectByOffset(size_t offset);
         bool IsNoneIdx(UNameIndex idx) { return (idx.NameTableIdx == NoneIdx); }
@@ -184,11 +193,14 @@ class UPKInfo
         const FObjectImport& GetImportEntry(uint32_t idx);
         const FNameEntry& GetNameEntry(uint32_t idx);
         FGuid GetGUID() { return Summary.GUID; }
+        uint16_t GetVersion() { return Summary.Version; }
+        bool IsLzoCompressed() { return Summary.CompressionFlags == (uint32_t)UCompressionFlags::LZO || IsFullyCompressed(); }
         bool IsCompressed() { return Compressed; }
         bool IsFullyCompressed() { return (Compressed && CompressedChunk); }
         UPKReadErrors GetError() { return ReadError; }
         uint32_t GetCompressionFlags() { return Summary.CompressionFlags; }
         UObjectReference GetLastAccessedExportObjIdx() { return LastAccessedExportObjIdx; }
+        uint32_t GetNoneIdx() { return NoneIdx; }
         /// format header to text string
         std::string FormatCompressedHeader();
         std::string FormatSummary();
@@ -212,29 +224,8 @@ class UPKInfo
         UObjectReference LastAccessedExportObjIdx;
 };
 
-/// helper functions
-std::string FormatHEX(uint32_t val);
-std::string FormatHEX(uint16_t val);
-std::string FormatHEX(uint8_t val);
-std::string FormatHEX(float val);
 std::string FormatHEX(FGuid GUID);
 std::string FormatHEX(UNameIndex NameIndex);
-std::string FormatHEX(uint32_t L, uint32_t H);
-std::string FormatHEX(std::vector<char> DataChunk);
-std::string FormatHEX(char* DataChunk, size_t size);
-std::string FormatHEX(std::string DataString);
-/// format flags
-std::string FormatPackageFlags(uint32_t flags);
-std::string FormatCompressionFlags(uint32_t flags);
-std::string FormatObjectFlagsL(uint32_t flags);
-std::string FormatObjectFlagsH(uint32_t flags);
-std::string FormatExportFlags(uint32_t flags);
-std::string FormatFunctionFlags(uint32_t flags);
-std::string FormatStructFlags(uint32_t flags);
-std::string FormatClassFlags(uint32_t flags);
-std::string FormatStateFlags(uint32_t flags);
-std::string FormatPropertyFlagsL(uint32_t flags);
-std::string FormatPropertyFlagsH(uint32_t flags);
 std::string FormatReadErrors(UPKReadErrors ReadError);
 
 #endif // UPKINFO_H

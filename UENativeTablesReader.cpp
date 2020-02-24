@@ -9,7 +9,7 @@ using namespace std;
 
 int main(int argN, char* argV[])
 {
-    cout << "UENativeTablesReader" << endl;
+    cout << "UENativeTablesReader by wghost81 aka Wasteland Ghost" << endl;
 
     if (argN != 2)
     {

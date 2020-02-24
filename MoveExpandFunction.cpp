@@ -8,7 +8,7 @@ using namespace std;
 
 int main(int argN, char* argV[])
 {
-    cout << "MoveExpandFunction" << endl;
+    cout << "MoveExpandFunction by wghost81 aka Wasteland Ghost" << endl;
 
     if (argN < 3 || argN > 4)
     {
@@ -75,6 +75,8 @@ int main(int argN, char* argV[])
         package.UndoMoveExportData((uint32_t)ObjRef);
         cout << "Object restored successfully!" << endl;
     }
+
+    package.SaveOnDisk();
 
     return 0;
 }

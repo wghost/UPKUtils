@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "UPKInfo.h"
+#include "CustomTFC.h"
 
 /// global type enumeration
 enum class GlobalType
@@ -39,37 +40,133 @@ enum class GlobalType
 	UDelegateProperty = 25,
 	UInterfaceProperty = 26,
 	UMapProperty = 27,
-	ULevel = 28
+	ULevel = 28,
+	USurface = 29,
+	UTexture = 30,
+	UTexture2D = 31
 };
+
+/*///pixel format enums (Texture2D)
+enum class EPixelFormat
+{
+    PF_Unknown,
+    PF_A32B32G32R32F,
+    PF_A8R8G8B8,
+    PF_G8,
+    PF_G16,
+    PF_DXT1,
+    PF_DXT2,
+    PF_DXT3,
+    PF_DXT4,
+    PF_DXT5,
+    PF_UYVY,
+    PF_FloatRGB,
+    PF_FloatRGBA,
+    PF_DepthStencil,
+    PF_ShadowDepth,
+    PF_FilteredShadowDepth,
+    PF_R32F,
+    PF_G16R16,
+    PF_G16R16F,
+    PF_G32R32F,
+    PF_A2B10G10R10,
+    PF_A16B16G16R16,
+    PF_D24
+};*/
 
 class UBulkDataMirror
 {
 public:
-    UBulkDataMirror(): SavedBulkDataFlags(0), SavedElementCount(0), SavedBulkDataSizeOnDisk(0), SavedBulkDataOffsetInFile(0) {}
-    void SetBulkData(std::vector<char> Data);
-    void SetFileOffset(size_t offset) { SavedBulkDataOffsetInFile = offset; }
+    UBulkDataMirror() {}
+    std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner);
     std::string Serialize();
+    std::string Serialize(size_t offset);
+    bool ExportToExternalFile(CustomTFC& T2DFile, std::string ObjName);
+    bool TryLzoCompression();
+    uint32_t CalculateSerializedSize();
+    ///flags
+    bool IsDataCompressed();
+    bool IsDataStoredElsewhere();
+    bool IsDataEmpty();
+    bool GetDataFlag(UBulkDataFlags flg);
+    void SetDataFlag(UBulkDataFlags flg, bool val);
+    void ToggleDataFlag(UBulkDataFlags flg);
+    ///setters
+    void SetEmpty();
+    void SetBulkDataRaw(std::vector<char> Data);
+    void SetBulkData(std::vector<char> Data) { BulkData = Data; }
+    void SetFileOffset(size_t offset) { SavedBulkDataOffsetInFile = offset; }
+    void SetSavedBulkDataFlags(uint32_t flags) { SavedBulkDataFlags = flags; }
+    void SetSavedElementCount(uint32_t elementCount) { SavedElementCount = elementCount; }
+    void SetExternalFileName(std::string filename) { externalFileName = filename; }
+    ///getters
+    std::vector<char> GetBulkData() { return BulkData; }
     size_t GetBulkDataRelOffset() { return 16; }
+    uint32_t GetSavedBulkDataFlags() { return SavedBulkDataFlags; }
+    uint32_t GetSavedElementCount() { return SavedElementCount; }
+    uint32_t GetSavedBulkDataSizeOnDisk() { return SavedBulkDataSizeOnDisk; }
+    uint32_t GetSavedBulkDataOffsetInFile() { return SavedBulkDataOffsetInFile; }
+    std::string GetExternalFileName() { return externalFileName; }
+    bool GetWasCompressed() { return WasCompressed; }
+    bool GetWasInExternalFile() { return WasInExternalFile; }
 protected:
     /// persistent
-    uint32_t SavedBulkDataFlags;
-    uint32_t SavedElementCount;
-    uint32_t SavedBulkDataSizeOnDisk;
-    uint32_t SavedBulkDataOffsetInFile;
+    uint32_t SavedBulkDataFlags = 0;
+    uint32_t SavedElementCount = 0;
+    uint32_t SavedBulkDataSizeOnDisk = 0;
+    uint32_t SavedBulkDataOffsetInFile = 0xFFFFFFFF;
     std::vector<char> BulkData;
+    /// memory
+    std::string externalFileName;
+    bool DoNotCompress = false;
+    bool LockFileOffset = false;
+    bool WasCompressed = false;
+    bool WasInExternalFile = false;
+    /// internal methods
+    bool ReadDataChunkFromExternalFile();
+};
+
+class UTexture2DMipMap : public UBulkDataMirror
+{
+public:
+    UTexture2DMipMap() {}
+    std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner);
+    std::string Serialize(size_t offset);
+    uint32_t CalculateSerializedSize();
+    uint32_t GetSizeX() { return SizeX; }
+    uint32_t GetSizeY() { return SizeY; }
+    void SetSizeX(uint32_t x) { SizeX = x; }
+    void SetSizeY(uint32_t y) { SizeY = y; }
+protected:
+    /// persistent
+    uint32_t SizeX = 0;
+    uint32_t SizeY = 0;
 };
 
 class UDefaultProperty
 {
 public:
+    /// constructors and destructors
     UDefaultProperty(): Name("None"), Type("None"), OwnerRef(0), TryUnsafe(0), QuickMode(0) {}
     ~UDefaultProperty() {}
-    std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe = false, bool quick = false);
     void Init(UObjectReference owner, bool unsafe = false, bool quick = false) { OwnerRef = owner; TryUnsafe = unsafe; QuickMode = quick; }
-    std::string GetName() { return Name; }
+    void MakeByteProperty(std::string name, std::string innerName, std::string value, UPKInfo& info);
+    void MakeNameProperty(std::string name, std::string value, UPKInfo& info);
+    void MakeIntProperty(std::string name, int32_t value, UPKInfo& info);
+    void MakeBoolProperty(std::string name, bool value, UPKInfo& info);
+    ///serialization and deserialization
+    std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe = false, bool quick = false);
     std::string DeserializeValue(std::istream& stream, UPKInfo& info);
     std::string FindArrayType(std::string ArrName, std::istream& stream, UPKInfo& info);
     std::string GuessArrayType(std::string ArrName);
+    std::string Serialize(UPKInfo& info);
+    /// getters
+    size_t GetInnerValueOffset(uint16_t ver = VER_XCOM);
+    std::string GetName() { return Name; }
+    std::string GetType() { return Type; }
+    UNameIndex GetValueNameIdx() { return valueNameIdx; }
+    uint32_t GetValueInt() { return valueInt; }
+    uint32_t GetValueBool() { return BoolValue; }
 protected:
     /// persistent
     UNameIndex NameIdx;
@@ -77,6 +174,7 @@ protected:
     uint32_t PropertySize;
     uint32_t ArrayIdx;
     uint8_t  BoolValue;       /// for BoolProperty only
+    uint32_t BoolValueOld;    /// older engine versions (batman)
     UNameIndex InnerNameIdx;  /// for StructProperty and ByteProperty only
     std::vector<char> InnerValue;
     /// memory
@@ -85,6 +183,12 @@ protected:
     UObjectReference OwnerRef;
     bool TryUnsafe;
     bool QuickMode;
+    /// possible values
+    int32_t valueInt = 0;
+    float valueFloat = 0;
+    UObjectReference valueObjRef;
+    UNameIndex valueNameIdx;
+    std::string valueString;
 };
 
 class UDefaultPropertiesList
@@ -93,10 +197,22 @@ public:
     UDefaultPropertiesList() {}
     ~UDefaultPropertiesList() {}
     std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe = false, bool quick = false);
+    std::vector<UDefaultProperty> GetDefaultProperties() { return DefaultProperties; }
 protected:
     std::vector<UDefaultProperty> DefaultProperties;
     size_t PropertyOffset;
     size_t PropertySize;
+};
+
+class BCArrayOfNames
+{
+public:
+    BCArrayOfNames() {}
+    ~BCArrayOfNames() {}
+    std::string Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner);
+protected:
+    std::vector<UNameIndex> Names;
+    uint32_t NamesNum;
 };
 
 /// parent class of all Unreal objects
@@ -112,10 +228,14 @@ public:
     virtual bool IsStructure() { return false; }
     virtual bool IsProperty() { return false; }
     virtual bool IsState() { return false; }
+    void SetClassVarFromProperty(UDefaultProperty& property, UPKInfo& info) {}
 protected:
     /// persistent
+    uint16_t BCUnknown1;                /// batman city unknown var
+    uint32_t BCUnknown2;                /// batman city unknown var
     UObjectReference ObjRef;            /// Next object (Linker-related)
     UDefaultPropertiesList DefaultProperties; /// for non-Class objects only
+    BCArrayOfNames BCUnkNames;          /// batman city
     /// memory
     GlobalType Type;
     UObjectReference ThisRef;
@@ -465,6 +585,79 @@ public:
 protected:
     /// database
     std::vector<UObjectReference> Actors;
+};
+
+class USurface: public UObject
+{
+public:
+    USurface() {}
+    ~USurface() {}
+    std::string Deserialize(std::istream& stream, UPKInfo& info);
+protected:
+};
+
+class UTexture: public USurface
+{
+public:
+    UTexture() {}
+    ~UTexture() {}
+    std::string Deserialize(std::istream& stream, UPKInfo& info);
+protected:
+};
+
+class UTexture2D: public UTexture
+{
+public:
+    ///constructors and destructors
+    UTexture2D() {}
+    ~UTexture2D() {}
+    ///serialization
+    std::string Deserialize(std::istream& stream, UPKInfo& info);
+    std::string SerializeTexture2DData(size_t offset);
+    bool TryLzoCompression(int minResolution = -1);
+    bool ExportToExternalFile(CustomTFC& T2DFile, UPKInfo& info, bool compressedOnly = true);
+    uint32_t CalculateTexture2DDataSize();
+    ///getters
+    std::vector<UTexture2DMipMap> GetMipMaps() { return MipMaps; }
+    uint32_t GetHeight() { return Height; }
+    uint32_t GetWidth() { return Width; }
+    uint32_t GetMipMapCount() { return MipMapCount; }
+    uint32_t GetPitchOrLinearSize() { return PitchOrLinearSize; }
+    std::string GetPixelFormat() { return Format; }
+    std::string GetTextureFileCacheName() { return TextureFileCacheName; }
+    bool GetNeverStream() { return NeverStream; }
+    bool GetDoNotReadTFC() { return DoNotReadTFC; }
+    ///setters
+    void SetMipMaps(std::vector<UTexture2DMipMap> mmaps) { MipMaps = mmaps; }
+    void SetHeight(uint32_t h) { Height = h; }
+    void SetWidth(uint32_t w) { Width = w; }
+    void SetMipMapCount(uint32_t cnt) { MipMapCount = cnt; }
+    void SetPitchOrLinearSize(uint32_t sz) { PitchOrLinearSize = sz; }
+    void SetPixelFormat(std::string fmt) { Format = fmt; }
+    void SetTextureFileCacheName(std::string tfcName) { TextureFileCacheName = tfcName; }
+    void SetNeverStream(bool ns) { NeverStream = ns; }
+    void SetDoNotReadTFC(bool val) { DoNotReadTFC = val; }
+protected:
+    uint32_t        Height = 0;
+    uint32_t        Width = 0;
+    uint32_t        MipTailBaseIdx = 0;
+    std::string     Format;                 ///actually an enum
+    std::string     LODGroup;               ///actually an enum
+    int             LODBias = 0;
+    bool            NeverStream = false;
+    std::string     TextureFileCacheName;
+    uint32_t        PitchOrLinearSize = 0;
+    uint32_t        MipMapCount = 0;
+    std::vector<UTexture2DMipMap> MipMaps;
+    ///unknown data
+    uint32_t        Unknown1 = 0;
+    uint32_t        Unknown2 = 0;
+    uint32_t        Unknown3 = 0;
+    std::vector<char> UnknownData;
+    ///memory vars
+    bool            DoNotReadTFC = false;
+    ///internal methods
+    void SetClassVarFromProperty(UDefaultProperty& property, UPKInfo& info);
 };
 
 class UObjectUnknown: public UObject

@@ -35,7 +35,7 @@ string CreatePath(string fullName, string dirName)
 
 int main(int argN, char* argV[])
 {
-    cout << "DeserializeAll" << endl;
+    cout << "DeserializeAll by wghost81 aka Wasteland Ghost" << endl;
 
     if (argN < 2 || argN > 3)
     {
@@ -80,7 +80,7 @@ int main(int argN, char* argV[])
         cout << ExportTable[i].FullName <<endl;
         if (NameMask != "")
         {
-            if (ExportTable[i].FullName.find(NameMask) == string::npos)
+            if (ExportTable[i].FullName.find(NameMask) == string::npos && ExportTable[i].Type.find(NameMask) == string::npos)
                 continue;
         }
         string filePath = CreatePath(ExportTable[i].FullName, dirName.ToStdString());
