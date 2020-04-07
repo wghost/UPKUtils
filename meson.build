@@ -4,25 +4,6 @@ project('UPKUtils',
   version : '1.6',
   meson_version : '>=0.49')
 
-# also search in the project base dir
-inc = [ include_directories('.') ]
-
-common_headers = files([
-  'CustomTFC.h',
-  'lzoconf.h',
-  'lzodefs.h',
-  'LzoUtils.h',
-  'minilzo.h',
-  'UFlags.h',
-  'UObjectFactory.h',
-  'UObject.h',
-  'UPKInfo.h',
-  'UPKUtils.h',
-  'UToken.h',
-  'UTokenFactory.h',
-])
-#install_headers(common_headers)
-
 common_src = [
   'CustomTFC.cpp',
   'LzoUtils.cpp',
