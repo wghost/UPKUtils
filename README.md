@@ -36,6 +36,20 @@ cd build
 ninja
 ```
 
+To compile project using CMake:
+```
+cmake -B build .
+make -C build
+```
+If you compile this under Windows you may use CMake GUI and generate project for your favorite IDE.
+You may need to manually specify where is your wxWidgets installation located.
+
+Example build under MS Windows done from MSVS MSBuild console:
+```
+cmake -G "Visual Studio 14 2015" -A Win32 -B build .
+msbuild build\UpkUtils.sln /p:Configuration=Release
+```
+
 To compile XComLZO packer/unpacker (deprecated):
 ```
 cd UPKUtils/XComLZO/build
