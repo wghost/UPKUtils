@@ -3,7 +3,7 @@ UPKUtils
 
 A set of utilities to work with UE3 cooked packages (u, upk, umap).
 
-The utilities were originally made to work with XCOM:EU/EW games. Now they also support Batman: Arkham Asylum and partially support Batman: Arkham City (WIP).
+The utilities were originally made to work with XCOM:EU/EW games. Now they also support Batman: Arkham Asylum Bulletstorm: Full Clip Edition, Murdered: Soul Suspect, Sherlock Holmes: Crimes and Punishments, Styx: Master of Shadows, X-Men Origins: Wolverine and partially support Batman: Arkham City (WIP).
 
 XComLZO is an old helper tool and can be considered deprecated now.
 
