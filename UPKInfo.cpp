@@ -73,7 +73,7 @@ bool UPKInfo::Read(std::istream& stream)
     stream.read(reinterpret_cast<char*>(&tmpVer), 4);
     Summary.Version = tmpVer % (1 << 16);
     Summary.LicenseeVersion = tmpVer >> 16;
-    if (Summary.Version != VER_XCOM && Summary.Version != VER_BATMAN && Summary.Version != VER_BATMAN_CITY)
+    if (Summary.Version != VER_XCOM && Summary.Version != VER_BATMAN && Summary.Version != VER_BATMAN_CITY && Summary.Version != VER_XMEN_ORIGINS && Summary.Version != VER_STYX && Summary.Version != VER_SHERLOCK_7 && Summary.Version != VER_MURDERED_SOUL_SUSPECT && Summary.Version != VER_BULLETSTORM_FULL_CLIP)
     {
         ReadError = UPKReadErrors::BadVersion;
         return false;
