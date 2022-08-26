@@ -13,7 +13,7 @@ string CreatePath(string fullName, string dirName)
 {
     string str = fullName;
     vector<string> names;
-    unsigned pos = str.find('.');
+    std::size_t pos = str.find('.');
     if (pos == string::npos)
         return (dirName + "\\" + str + ".txt");
     while (pos != string::npos)
