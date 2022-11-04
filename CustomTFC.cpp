@@ -63,7 +63,7 @@ bool CustomTFC::Reload()
     BlockHeaders.clear();
     ///test if the file is empty
     TFCFile.seekg(0, std::ios::end);
-    if (TFCFile.tellg() == 0)
+    if (TFCFile.tellg() == std::streampos(0))
         return true;
     else
         TFCFile.seekg(0);

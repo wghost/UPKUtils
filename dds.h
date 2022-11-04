@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <iostream>
 #include <cstring>
+#include <string>
 
 #define FOURCC_DXT1 0x31545844 ///DXT1
 
