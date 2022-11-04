@@ -38,6 +38,11 @@ std::string GetPixelFormatStringFromDDSHeader(DDSHeader header)
     {
         return "PF_A8R8G8B8";
     }
+    /// TC_NormalmapUncompressed
+    if ((header.spf.Flags & 0x00080000) && header.spf.RGBBitCount == 16)
+    {
+        return "PF_V8U8";
+    }
     /// compressed texels
     else if (header.spf.Flags & (uint32_t)DDSPixelFormatFlags::DDPF_FOURCC)
     {
@@ -115,6 +120,16 @@ DDSHeader MakeDDSHeader(std::string pixelFormat)
         header.spf.RBitMask = 0x00FF0000;
         header.spf.GBitMask = 0x0000FF00;
         header.spf.BBitMask = 0x000000FF;
+    }
+    /// TC_NormalmapUncompressed
+    else if (pixelFormat == "PF_V8U8")
+    {
+        header.spf.Flags = 0x00080000;
+        header.spf.RGBBitCount = 16;
+        header.spf.RBitMask = 0x00FF;
+        header.spf.GBitMask = 0xFF00;
+        header.spf.BBitMask = 0x0000;
+        header.spf.ABitMask = 0x0000;
     }
     /// compressed texels
     else if (pixelFormat == "PF_DXT1" || pixelFormat == "PF_DXT3" || pixelFormat == "PF_DXT5")

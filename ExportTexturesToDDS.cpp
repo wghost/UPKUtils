@@ -124,7 +124,7 @@ int main(int argN, char* argV[])
         UPKReadErrors err = Package.GetError();
         if (err != UPKReadErrors::NoErrors && !Package.IsCompressed())
         {
-            std::cerr << "Error reading package:\n" << FormatReadErrors(err);
+            std::cerr << "Error reading package: " << nextFileName << "\n" << FormatReadErrors(err);
             failedToProcess.Add(nextFileName);
             continue;
         }
@@ -133,7 +133,7 @@ int main(int argN, char* argV[])
             std::cout << "Package is compressed, decompressing...\n";
             if (!Package.DecompressPackage())
             {
-                std::cerr << "Error decompressing package!\n";
+                std::cerr << "Error decompressing package: " << nextFileName << "!\n";
                 failedToProcess.Add(nextFileName);
                 continue;
             }
@@ -143,6 +143,8 @@ int main(int argN, char* argV[])
         for (unsigned j = 1; j < ExportTable.size(); ++j)
         {
             if (ExportTable[j].Type != "Texture2D" || Package.IsPropertiesObject(j))
+                continue;
+            if (ExportTable[j].FullName == "Default__Texture2D" && ExportTable[j].SerialSize == 14) /// BatmanAC def prop object with no def prop flag (???)
                 continue;
             if (wxIsWild(objectName) && !wxMatchWild(objectName, ExportTable[j].FullName, false))
                 continue;
@@ -198,12 +200,14 @@ bool SaveDDS(UObjectReference ObjRef, UPKUtils& package, std::string filename)
     UTexture2D* texture = dynamic_cast<UTexture2D*>(package.DeserializeObjectByRef(ObjRef));
     if (texture == nullptr)
     {
-        std::cerr << "Error deserializing Texture2D object!\n";
+        std::cerr << "Error deserializing Texture2D object: " << package.ResolveFullName(ObjRef) << "!\n";
         return false;
     }
 
     ///make dds header
     DDSHeader header = MakeDDSHeader(texture->GetPixelFormat());
+
+    std::cout << "Pixel format for " << package.ResolveFullName(ObjRef) << ": " << texture->GetPixelFormat() << std::endl;
 
     /// adjust header
     header.Height = texture->GetHeight();
@@ -225,7 +229,7 @@ bool SaveDDS(UObjectReference ObjRef, UPKUtils& package, std::string filename)
 
     if (mipMapsToSave.size() == 0)
     {
-        std::cerr << "No mipmas to save to dds!\n";
+        std::cerr << "No mipmas to save to dds: " << filename << "!\n";
         delete texture;
         return false;
     }

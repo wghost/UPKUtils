@@ -30,6 +30,7 @@ public:
     size_t GetScriptRelOffset(uint32_t idx);
     /// Modify serialized data in memory
     bool ReplacePropertyValue(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr);
+    bool ReplaceProperty(UDefaultProperty oldProp, UDefaultProperty newProp, uint32_t idx, std::string& exportDataStr);
     bool RemoveProperty(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr);
     bool InsertProperty(UDefaultProperty prop, UDefaultProperty beforeProp, uint32_t idx, std::string& exportDataStr);
     bool InsertProperty(UDefaultProperty prop, uint32_t idx, std::string& exportDataStr);

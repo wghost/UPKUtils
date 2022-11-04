@@ -79,7 +79,7 @@ bool CustomTFC::Reload()
             return false;
         }
         BlockHeaders.push_back(header);
-        size_t maxOffset = header.BlockOffset + header.BlockSize;
+        uint32_t maxOffset = header.BlockOffset + header.BlockSize;
         while (TFCFile.tellg() < maxOffset)
         {
             TFCInventoryEntry entry;
@@ -152,7 +152,7 @@ bool CustomTFC::InternalWriteData(TFCInventoryEntry& DataDescr, std::vector<char
     }
     ///write the data
     TFCFile.seekg(0, std::ios::end);
-    size_t newDataOffset = TFCFile.tellg();
+    uint32_t newDataOffset = TFCFile.tellg();
     DataDescr.SavedBulkDataOffsetInFile = newDataOffset;
     TFCFile.seekp(newDataOffset);
     TFCFile.write(DataToWrite.data(), DataToWrite.size());
@@ -174,9 +174,9 @@ bool CustomTFC::InternalWriteData(TFCInventoryEntry& DataDescr, std::vector<char
         }
     }
     ///add new descriptor into the tfc
-    size_t newEntryOffset = LastEntryEndOffset;
+    uint32_t newEntryOffset = LastEntryEndOffset;
     DataDescr.ObjectNameLength = DataDescr.ObjectName.size();
-    size_t newEntrySize = 12 + DataDescr.ObjectNameLength;
+    uint32_t newEntrySize = 12 + DataDescr.ObjectNameLength;
     TFCBlockHeader LastHeader = BlockHeaders[BlockHeaders.size() - 1];
     ///not enough space inside the current block -> add a new one
     if (newEntryOffset + newEntrySize >= LastHeader.BlockOffset + ALIGN_TO_BLOCK_SIZE)
@@ -214,7 +214,7 @@ bool CustomTFC::InternalWriteData(TFCInventoryEntry& DataDescr, std::vector<char
 bool CustomTFC::InternalWriteNewBlock()
 {
     TFCFile.seekg(0, std::ios::end);
-    size_t newBlockOffset = TFCFile.tellg();
+    uint32_t newBlockOffset = TFCFile.tellg();
     ///no headers and file is not empty -> not a custom tfc, won't do anything!
     if (BlockHeaders.size() == 0 && newBlockOffset != 0)
     {

@@ -119,14 +119,28 @@ std::string UPKUtils::GetUObjectSerializedData(uint32_t idx)
     ///returns just the UObject part of export data: next object ref + defaultproperties list
     if (idx < 1 || idx >= ExportTable.size() || NoneIdx <= 0)
         return "";
-    UNameIndex NameIdx = NoneToUNameIndex();
-    std::string noneStr(reinterpret_cast<char*>(&NameIdx), 8);
     std::vector<char> exportData = GetExportData(idx);
     std::string exportDataStr(exportData.data(), exportData.size());
-    size_t pos = exportDataStr.find(noneStr);
-    if (pos == std::string::npos)
-        return "";
-    exportDataStr.resize(pos + 8);
+    if (Summary.Version == VER_BATMAN_CITY) ///for BatmanAC def props are serialized by offset, so need to actually deserialize def props list to find out where it ends
+    {
+        UObject* tmpObj = DeserializeObjectByRef(idx, true);
+        uint32_t sz = tmpObj->GetUObjExportEntrySize();
+        if (sz > 0 && sz <= ExportTable[idx].SerialSize)
+            exportDataStr.resize(sz);
+        else
+            exportDataStr = "";
+        if (tmpObj)
+            delete tmpObj;
+    }
+    else ///for normal packages def prop list ends with None name index, which is easy to locate by search
+    {
+        UNameIndex NameIdx = NoneToUNameIndex();
+        std::string noneStr(reinterpret_cast<char*>(&NameIdx), 8);
+        size_t pos = exportDataStr.find(noneStr);
+        if (pos == std::string::npos)
+            return "";
+        exportDataStr.resize(pos + 8);
+    }
     return exportDataStr;
 }
 
@@ -254,11 +268,17 @@ bool UPKUtils::MoveResizeObject(uint32_t idx, int newObjectSize, int resizeAt)
     if (ExportTable[idx].SerialSize != data.size())
     {
         /// write new SerialSize to ExportTable entry
-        UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*8);
+        if (Summary.Version == VER_BATMAN_CITY)
+            UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*9);
+        else
+            UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*8);
         UPKFile.write(reinterpret_cast<char*>(&newObjectSize), sizeof(newObjectSize));
     }
     /// write new SerialOffset to ExportTable entry
-    UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*9);
+    if (Summary.Version == VER_BATMAN_CITY)
+        UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*10);
+    else
+        UPKFile.seekp(ExportTable[idx].EntryOffset + sizeof(uint32_t)*9);
     UPKFile.write(reinterpret_cast<char*>(&newObjectOffset), sizeof(newObjectOffset));
     /// write new SerialData
     if (data.size() > 0)
@@ -538,6 +558,29 @@ bool UPKUtils::ReplacePropertyValue(UDefaultProperty prop, uint32_t idx, std::st
     pos += propHeaderString.size();
     std::string propValueString(propString.begin() + propHeaderString.size(), propString.end());
     exportDataStr.replace(pos, propValueString.size(), propValueString);
+    return true;
+}
+
+bool UPKUtils::ReplaceProperty(UDefaultProperty oldProp, UDefaultProperty newProp, uint32_t idx, std::string& exportDataStr)
+{
+    std::string oldPropString, newPropString;
+    if (Summary.Version == VER_BATMAN_CITY)
+    {
+        oldPropString = oldProp.SerializeBatmanAC(*dynamic_cast<UPKInfo*>(this));
+        newPropString = newProp.SerializeBatmanAC(*dynamic_cast<UPKInfo*>(this));
+    }
+    else
+    {
+        oldPropString = oldProp.Serialize(*dynamic_cast<UPKInfo*>(this));
+        newPropString = newProp.Serialize(*dynamic_cast<UPKInfo*>(this));
+    }
+    ///so far only props of the same size can be replaced
+    if (oldPropString.size() != newPropString.size())
+        return false;
+    size_t pos = exportDataStr.find(oldPropString);
+    if (pos == std::string::npos)
+        return false;
+    exportDataStr.replace(pos, newPropString.size(), newPropString);
     return true;
 }
 

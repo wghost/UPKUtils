@@ -6,7 +6,8 @@
 
 UPKInfo::UPKInfo(std::istream& stream): Summary(), NoneIdx(0), ReadError(UPKReadErrors::NoErrors), Compressed(false), CompressedChunk(false)
 {
-    if (!Read(stream))
+    ///on read errors assume the package might be fully compressed and try reading compressed header
+    if (!Read(stream) && ReadError != UPKReadErrors::IsCompressed)
         ReadCompressedHeader(stream);
 }
 
@@ -18,7 +19,7 @@ bool UPKInfo::ReadCompressedHeader(std::istream& stream)
         return false;
     }
     stream.seekg(0, std::ios::end);
-    size_t Size = stream.tellg();
+    uint32_t Size = stream.tellg();
     stream.seekg(0);
     stream.read(reinterpret_cast<char*>(&CompressedHeader.Signature), 4);
     if (CompressedHeader.Signature != 0x9E2A83C1)
@@ -55,7 +56,7 @@ bool UPKInfo::ReadCompressedHeader(std::istream& stream)
 
 bool UPKInfo::Read(std::istream& stream)
 {
-    size_t headerEndOffset = 4;
+    uint32_t headerEndOffset = 4;
     CompressedHeader = FCompressedChunkHeader{};
     if (!stream.good())
     {
@@ -213,7 +214,9 @@ bool UPKInfo::Read(std::istream& stream)
         stream.read(reinterpret_cast<char*>(&EntryToRead.NameIdx), sizeof(EntryToRead.NameIdx));
         stream.read(reinterpret_cast<char*>(&EntryToRead.ArchetypeRef), sizeof(EntryToRead.ArchetypeRef));
         if (Summary.Version == VER_BATMAN_CITY)
+        {
             stream.read(reinterpret_cast<char*>(&EntryToRead.Unknown2), sizeof(EntryToRead.Unknown2));
+        }
         stream.read(reinterpret_cast<char*>(&EntryToRead.ObjectFlagsH), sizeof(EntryToRead.ObjectFlagsH));
         stream.read(reinterpret_cast<char*>(&EntryToRead.ObjectFlagsL), sizeof(EntryToRead.ObjectFlagsL));
         stream.read(reinterpret_cast<char*>(&EntryToRead.SerialSize), sizeof(EntryToRead.SerialSize));
@@ -443,7 +446,7 @@ UObjectReference UPKInfo::FindObjectByName(std::string Name, bool isExport)
     return 0;
 }
 
-UObjectReference UPKInfo::FindObjectByOffset(size_t offset)
+UObjectReference UPKInfo::FindObjectByOffset(uint32_t offset)
 {
     for (unsigned i = 1; i < ExportTable.size(); ++i)
     {
@@ -631,7 +634,7 @@ std::string UPKInfo::FormatExport(uint32_t idx, bool verbose)
            << "\tArchetypeRef: " << FormatHEX((uint32_t)Entry.ArchetypeRef) << " -> " << ObjRefToName(Entry.ArchetypeRef) << std::endl;
         if (Summary.Version == VER_BATMAN_CITY)
            ss << "\tUnknown2: " << FormatHEX(Entry.Unknown2) << std::endl;
-           ss << "\tObjectFlagsH: " << FormatHEX(Entry.ObjectFlagsH) << std::endl
+        ss << "\tObjectFlagsH: " << FormatHEX(Entry.ObjectFlagsH) << std::endl
            << FormatObjectFlagsH(Entry.ObjectFlagsH)
            << "\tObjectFlagsL: " << FormatHEX(Entry.ObjectFlagsL) << std::endl
            << FormatObjectFlagsL(Entry.ObjectFlagsL)

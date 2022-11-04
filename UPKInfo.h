@@ -103,9 +103,9 @@ struct FPackageFileSummary
     std::vector<FCompressedChunk> CompressedChunks;
     std::vector<char> UnknownDataChunk;
     /// memory
-    size_t HeaderSizeOffset;
-    size_t NameCountOffset;
-    size_t UPKFileSize;
+    uint32_t HeaderSizeOffset;
+    uint32_t NameCountOffset;
+    uint32_t UPKFileSize;
 };
 
 struct FNameEntry
@@ -116,8 +116,8 @@ struct FNameEntry
     uint32_t    NameFlagsL;
     uint32_t    NameFlagsH;
     /// memory
-    size_t      EntryOffset;
-    size_t      EntrySize;
+    uint32_t    EntryOffset;
+    uint32_t    EntrySize;
 };
 
 struct FObjectImport
@@ -128,8 +128,8 @@ struct FObjectImport
     UObjectReference OwnerRef;
     UNameIndex       NameIdx;
     /// memory
-    size_t           EntryOffset;
-    size_t           EntrySize;
+    uint32_t         EntryOffset;
+    uint32_t         EntrySize;
     std::string      Name;
     std::string      FullName;
     std::string      Type;
@@ -143,6 +143,7 @@ struct FObjectExport
     UObjectReference OwnerRef;
     UNameIndex       NameIdx;
     UObjectReference ArchetypeRef;
+    uint32_t         Unknown2;            /// batman city
     uint32_t         ObjectFlagsH;
     uint32_t         ObjectFlagsL;
     uint32_t         SerialSize;
@@ -151,11 +152,10 @@ struct FObjectExport
     uint32_t         NetObjectCount;
     FGuid            GUID;
     uint32_t         Unknown1;
-    uint32_t         Unknown2;            /// batman city
     std::vector<uint32_t> NetObjects;     /// 4 x NetObjectCount bytes of data
     /// memory
-    size_t           EntryOffset;
-    size_t           EntrySize;
+    uint32_t         EntryOffset;
+    uint32_t         EntrySize;
     std::string      Name;
     std::string      FullName;
     std::string      Type;
@@ -184,7 +184,7 @@ class UPKInfo
         UObjectReference FindObject(std::string FullName, bool isExport = true);
         UObjectReference FindObjectOfType(std::string FullName, std::string Type, bool isExport = true);
         UObjectReference FindObjectByName(std::string Name, bool isExport = true);
-        UObjectReference FindObjectByOffset(size_t offset);
+        UObjectReference FindObjectByOffset(uint32_t offset);
         bool IsNoneIdx(UNameIndex idx) { return (idx.NameTableIdx == NoneIdx); }
         /// Getters
         const FPackageFileSummary& GetSummary() { return Summary; }

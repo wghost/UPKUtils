@@ -47,7 +47,7 @@ private:
     std::string                                 TFCFileName;
     //std::iostream                               TFCFile;
     std::fstream                                TFCFile;
-    size_t                                      LastEntryEndOffset = 0;
+    uint32_t                                    LastEntryEndOffset = 0;
     ///internal operations
     bool InternalWriteData(TFCInventoryEntry& DataDescr, std::vector<char> DataToWrite);
     bool InternalWriteNewBlock();

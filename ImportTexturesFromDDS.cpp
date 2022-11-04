@@ -9,7 +9,6 @@
 #include <wx/cmdline.h>
 
 #define CUSTOM_TFC_NAME "Texture2D"
-#define LOD_BIAS_BAD    100500
 
 //using namespace std;
 
@@ -36,8 +35,8 @@ int main(int argN, char* argV[])
         { wxCMD_LINE_OPTION, "o", "output",     "set output dir (output packages)" },
         { wxCMD_LINE_OPTION, "d", "dds",        "set dds dir (input dds, inventory.csv)" },
         { wxCMD_LINE_OPTION, "t", "tfc",        "set tfc name and dir (by default [output dir]/Texture2D.tfc is used)" },
-        { wxCMD_LINE_OPTION, NULL, "LODBias",   "new LODBias value", wxCMD_LINE_VAL_NUMBER },
-        { wxCMD_LINE_SWITCH, NULL, "resetLOD",  "reset LODBias" },
+        { wxCMD_LINE_OPTION, NULL, "LODBias",   "new LODBias value (ignored for Batman AC)", wxCMD_LINE_VAL_NUMBER },
+        { wxCMD_LINE_SWITCH, NULL, "resetLOD",  "reset LODBias (ignored for Batman AC)" },
         { wxCMD_LINE_SWITCH, "x", "exit",       "exit on error" },
         { wxCMD_LINE_SWITCH, "w", "overwrite",  "overwrite existing files without backup" },
         { wxCMD_LINE_NONE }
@@ -71,7 +70,7 @@ int main(int argN, char* argV[])
     outputDirName = wxFileName(outputDirName).GetFullPath();
     if (!wxDirExists(outputDirName) && !wxMkdir(outputDirName))
     {
-        std::cerr << "Output directory does not exist: " + outputDirName << std::endl;
+        std::cerr << "Error: output directory does not exist: " + outputDirName << std::endl;
         return 1;
     }
     std::cout << "Output dir name (output packages): " << outputDirName << std::endl;
@@ -185,7 +184,7 @@ int main(int argN, char* argV[])
                 nextFileName = found;
             else
             {
-                std::cerr << "Cannot find package file: " << nextFileName << std::endl;
+                std::cerr << "Error: cannot find package file: " << nextFileName << std::endl;
                 failedToProcess.Add(nextFileName);
                 if (exitOnError)
                     return 1;
@@ -198,7 +197,7 @@ int main(int argN, char* argV[])
         UPKReadErrors err = Package.GetError();
         if (err != UPKReadErrors::NoErrors && !Package.IsCompressed())
         {
-            std::cerr << "Error reading package:\n" << FormatReadErrors(err);
+            std::cerr << "Error reading package: " << nextFileName << "\n" << FormatReadErrors(err);
             failedToProcess.Add(nextFileName);
             if (exitOnError)
                 return 1;
@@ -209,7 +208,7 @@ int main(int argN, char* argV[])
             std::cout << "Package is compressed, decompressing...\n";
             if (!Package.DecompressPackage())
             {
-                std::cerr << "Error decompressing package!\n";
+                std::cerr << "Error decompressing package: " << nextFileName << "\n";
                 failedToProcess.Add(nextFileName);
                 if (exitOnError)
                     return 1;
@@ -220,7 +219,7 @@ int main(int argN, char* argV[])
         /// make sure the specified tfc name exists in nametable
         if (Package.FindName(wxFileName(T2DFile.GetFilename()).GetName().ToStdString()) == -1)
         {
-            std::cerr << "The tfc name specified does not exist for this package!\n";
+            std::cerr << "Error: the tfc name specified does not exist for this package!\n";
             failedToProcess.Add(nextFileName);
             if (exitOnError)
                 return 1;
@@ -238,7 +237,7 @@ int main(int argN, char* argV[])
                     nextDDSFileName = found;
                 else
                 {
-                    std::cerr << "Cannot find dds file: " << nextDDSFileName << std::endl;
+                    std::cerr << "Error: cannot find dds file: " << nextDDSFileName << std::endl;
                     failedToExportObjs.Add(nextDDSFileName);
                     if (exitOnError)
                         return 1;
@@ -259,7 +258,7 @@ int main(int argN, char* argV[])
             UObjectReference objRef = Package.FindObjectOfType(fullObjName, "Texture2D", true);
             if (objRef == 0)
             {
-                std::cerr << "Export object not found: " << fullObjName << " (in " << nextFileName << ")" << std::endl;
+                std::cerr << "Error: export object not found: " << fullObjName << " (in " << nextFileName << ")" << std::endl;
                 failedToExportObjs.Add(fullObjName + "(in " + nextFileName + ")");
                 if (exitOnError)
                     return 1;
@@ -332,7 +331,7 @@ int main(int argN, char* argV[])
     }
     if (failedToExportObjs.size() > 0)
     {
-        std::cout << "Failed to export textures (" << failedToExportObjs.size() << "):\n";
+        std::cout << "Failed to import textures (" << failedToExportObjs.size() << "):\n";
         for (unsigned i = 0; i < failedToExportObjs.size(); ++i)
             std::cout << failedToExportObjs[i] << std::endl;
     }
@@ -389,7 +388,7 @@ bool ReadInventory(wxString filename, std::map<wxString, wxArrayString>& inv)
     std::ifstream invFile(filename.ToStdString());
     if (!invFile.is_open())
     {
-        std::cerr << "Cannot open " << filename << std::endl;
+        std::cerr << "Error: cannot open " << filename << std::endl;
         return false;
     }
     inv.clear();
@@ -431,13 +430,13 @@ bool CatalogueFilesToProcess(wxString ddsDir, wxString ddsMask, wxString upkDir,
     wxArrayString ddsToProcess = TraverseDir(ddsDir, ddsMask);
     if (ddsToProcess.size() == 0)
     {
-        std::cerr << "Missing dds file(s) to process!" << std::endl;
+        std::cerr << "Error: missing dds file(s) to process!" << std::endl;
         return false;
     }
     wxArrayString upkToProcess = TraverseDir(upkDir, upkMask);
     if (upkToProcess.size() == 0)
     {
-        std::cerr << "Missing package(s) to process!" << std::endl;
+        std::cerr << "Error: missing package(s) to process!" << std::endl;
         return false;
     }
     upkInv.clear();
@@ -453,7 +452,7 @@ bool CatalogueFilesToProcess(wxString ddsDir, wxString ddsMask, wxString upkDir,
     }
     if (ddsInv.size() == 0)
     {
-        std::cerr << "Bad inventory!" << std::endl;
+        std::cerr << "Error: bad inventory!" << std::endl;
         return false;
     }
     std::map<wxString, wxString> upkPathInv;
@@ -469,7 +468,7 @@ bool CatalogueFilesToProcess(wxString ddsDir, wxString ddsMask, wxString upkDir,
         wxString objName = wxFileName(ddsToProcess[i]).GetName();
         if (ddsInv.count(objName) == 0)
         {
-            std::cerr << "Bad texture object name or bad inventory: " << objName << std::endl;
+            std::cerr << "Error: bad texture object name or bad inventory: " << objName << std::endl;
             return false;
         }
         /// extract package names from the inventory
@@ -489,7 +488,7 @@ bool CatalogueFilesToProcess(wxString ddsDir, wxString ddsMask, wxString upkDir,
     }
     if (upkInv.size() == 0)
     {
-        std::cerr << "Cannot match textures to packages!" << std::endl;
+        std::cerr << "Error: cannot match textures to packages!" << std::endl;
         return false;
     }
     return true;
@@ -509,7 +508,7 @@ bool ReadDDSFile(wxString nextDDSFileName, DDSHeader& header, std::vector<UTextu
     ddsIn.read(reinterpret_cast<char*>(&ddsMagic), 4);
     if (ddsMagic != 0x20534444)
     {
-        std::cerr << "Missing DDS magic!" << std::endl;
+        std::cerr << "Error: missing DDS magic!" << std::endl;
         return false;
     }
 
@@ -581,7 +580,7 @@ bool WriteTextureObject(UObjectReference ObjRef, UPKUtils& package, CustomTFC& t
     UTexture2D* texture = dynamic_cast<UTexture2D*>(package.DeserializeObjectByRef(ObjRef, true));
     if (texture == nullptr)
     {
-        std::cerr << "Error deserializing Texture2D object!\n";
+        std::cerr << "Error deserializing Texture2D object: " << package.ResolveFullName(ObjRef) << "!\n";
         return false;
     }
     /// make a new texture object
@@ -597,9 +596,10 @@ bool WriteTextureObject(UObjectReference ObjRef, UPKUtils& package, CustomTFC& t
     ///adjust texture params
     bool texturesAreIdentical = true;
     newTexture->SetPixelFormat(GetPixelFormatStringFromDDSHeader(header));
+    std::cout << "Pixel format for " << package.ResolveFullName(ObjRef) << ": " << texture->GetPixelFormat() << std::endl;
     if (texture->GetPixelFormat() != newTexture->GetPixelFormat())
     {
-        std::cerr << "PixelFormat mismatch! Old PixelFormat = " << texture->GetPixelFormat() << std::endl;
+        std::cerr << "Error: PixelFormat mismatch! Old PixelFormat = " << texture->GetPixelFormat() << ". New PixelFormat = " << newTexture->GetPixelFormat() << std::endl;
         delete texture;
         delete newTexture;
         return false;
@@ -624,38 +624,68 @@ bool WriteTextureObject(UObjectReference ObjRef, UPKUtils& package, CustomTFC& t
     ///adjust defaultproperties
     if (!texturesAreIdentical)
     {
+        ///for BatmanAC def props are serialized by offset, so searching for a def prop entry by type + offset (4 bytes) is unsafe (not unique enough combination)
+        ///this is why for that one full prop is reconstructed and replaced old -> new
         if (texture->GetWidth() != newTexture->GetWidth())
         {
-            UDefaultProperty prop;
-            prop.MakeIntProperty("SizeX", newTexture->GetWidth(), package);
-            package.ReplacePropertyValue(prop, ObjRef, newExportDataStr);
+            UDefaultProperty newProp;
+            newProp.MakeIntProperty("SizeX", newTexture->GetWidth(), package);
+            if (package.GetVersion() == VER_BATMAN_CITY)
+            {
+                UDefaultProperty oldProp;
+                oldProp.MakeIntProperty("SizeX", texture->GetWidth(), package);
+                package.ReplaceProperty(oldProp, newProp, ObjRef, newExportDataStr);
+            }
+            else
+                package.ReplacePropertyValue(newProp, ObjRef, newExportDataStr);
         }
         if (texture->GetHeight() != newTexture->GetHeight())
         {
-            UDefaultProperty prop;
-            prop.MakeIntProperty("SizeY", newTexture->GetHeight(), package);
-            package.ReplacePropertyValue(prop, ObjRef, newExportDataStr);
+            UDefaultProperty newProp;
+            newProp.MakeIntProperty("SizeY", newTexture->GetHeight(), package);
+            if (package.GetVersion() == VER_BATMAN_CITY)
+            {
+                UDefaultProperty oldProp;
+                oldProp.MakeIntProperty("SizeY", texture->GetHeight(), package);
+                package.ReplaceProperty(oldProp, newProp, ObjRef, newExportDataStr);
+            }
+            else
+                package.ReplacePropertyValue(newProp, ObjRef, newExportDataStr);
         }
         if (texture->GetMipMapCount() != newTexture->GetMipMapCount())
         {
-            UDefaultProperty prop;
-            prop.MakeIntProperty("MipTailBaseIdx", newTexture->GetMipMapCount() - 1, package);
-            package.ReplacePropertyValue(prop, ObjRef, newExportDataStr);
+            UDefaultProperty newProp;
+            newProp.MakeIntProperty("MipTailBaseIdx", newTexture->GetMipMapCount() - 1, package);
+            if (package.GetVersion() == VER_BATMAN_CITY)
+            {
+                UDefaultProperty oldProp;
+                oldProp.MakeIntProperty("MipTailBaseIdx", texture->GetMipMapCount() - 1, package);
+                package.ReplaceProperty(oldProp, newProp, ObjRef, newExportDataStr);
+            }
+            else
+                package.ReplacePropertyValue(newProp, ObjRef, newExportDataStr);
         }
     }
     ///adjust LODBias
-    if (resetLOD)
+    if (package.GetVersion() == VER_BATMAN_CITY)
     {
-        UDefaultProperty prop;
-        prop.MakeIntProperty("LODBias", LODBias, package);
-        package.RemoveProperty(prop, ObjRef, newExportDataStr);
+        ///Doesn't seem to have LODBias var
     }
-    else if (LODBias != LOD_BIAS_BAD)
+    else
     {
-        UDefaultProperty prop;
-        prop.MakeIntProperty("LODBias", LODBias, package);
-        if (!package.ReplacePropertyValue(prop, ObjRef, newExportDataStr))
-            package.InsertProperty(prop, ObjRef, newExportDataStr);
+        if (resetLOD)
+        {
+            UDefaultProperty prop;
+            prop.MakeIntProperty("LODBias", LODBias, package);
+            package.RemoveProperty(prop, ObjRef, newExportDataStr);
+        }
+        else if (LODBias != LOD_BIAS_BAD)
+        {
+            UDefaultProperty prop;
+            prop.MakeIntProperty("LODBias", LODBias, package);
+            if (!package.ReplacePropertyValue(prop, ObjRef, newExportDataStr))
+                package.InsertProperty(prop, ObjRef, newExportDataStr);
+        }
     }
     ///mipmaps were in an external tfc originally
     if (texture->GetTextureFileCacheName() != "")
@@ -663,20 +693,48 @@ bool WriteTextureObject(UObjectReference ObjRef, UPKUtils& package, CustomTFC& t
         ///set new tfc name
         newTexture->SetTextureFileCacheName(wxFileName(tfc.GetFilename()).GetName().ToStdString());
         ///adjust default properties
-        UDefaultProperty prop1;
-        prop1.MakeNameProperty("TextureFileCacheName", newTexture->GetTextureFileCacheName(), package);
-        package.ReplacePropertyValue(prop1, ObjRef, newExportDataStr);
-        ///try compression
-        if (newTexture->TryLzoCompression(256))
+        UDefaultProperty newProp;
+        newProp.MakeNameProperty("TextureFileCacheName", newTexture->GetTextureFileCacheName(), package);
+        if (package.GetVersion() == VER_BATMAN_CITY)
         {
-            ///try exporting compressed textures to the new tfc
-            if (!newTexture->ExportToExternalFile(tfc, package, true))
+            UDefaultProperty oldProp;
+            oldProp.MakeNameProperty("TextureFileCacheName", texture->GetTextureFileCacheName(), package);
+            package.ReplaceProperty(oldProp, newProp, ObjRef, newExportDataStr);
+        }
+        else
+            package.ReplacePropertyValue(newProp, ObjRef, newExportDataStr);
+        ///try compression
+        if (texture->GetHasCompressedMipMaps())
+        {
+            int minResForCompression = newTexture->GetMinObservedResForCompression();
+            std::cout << "Min observed res for mipmap compression for " << package.ResolveFullName(ObjRef) << ": " << minResForCompression << std::endl;
+            if (minResForCompression > -1)
             {
-                std::cerr << "Error writing external texture file " << tfc.GetFilename() << std::endl;
-                delete texture;
-                delete newTexture;
-                return false;
+                if (newTexture->TryLzoCompression(minResForCompression))
+                {
+                    ///try exporting compressed textures to the new tfc
+                    if (!newTexture->ExportToExternalFile(tfc, package, true))
+                    {
+                        std::cerr << "Error writing external texture file " << tfc.GetFilename() << std::endl;
+                        delete texture;
+                        delete newTexture;
+                        return false;
+                    }
+                }
             }
+        }
+        if (package.GetVersion() == VER_BATMAN_CITY && texture->GetNumTFCMipMaps() > -1)
+        {
+            UDefaultProperty newProp, oldProp;
+            if (newTexture->GetNumTFCMipMaps() > -1)
+                newProp.MakeIntProperty("NumTFCMipMaps", newTexture->GetNumTFCMipMaps(), package);
+            else
+            {
+                newProp.MakeIntProperty("NumTFCMipMaps", 0, package);
+                std::cerr << "Warning: potential issues with texture compression and/or tfc! Texture2D object: " << package.ResolveFullName(ObjRef) << std::endl;
+            }
+            oldProp.MakeIntProperty("NumTFCMipMaps", texture->GetNumTFCMipMaps(), package);
+            package.ReplaceProperty(oldProp, newProp, ObjRef, newExportDataStr);
         }
     }
     ///check if export object resize is needed
@@ -693,7 +751,7 @@ bool WriteTextureObject(UObjectReference ObjRef, UPKUtils& package, CustomTFC& t
     std::vector<char> dataToWrite(t2dData.begin(), t2dData.end());
     if (!package.WriteExportData(ObjRef, dataToWrite))
     {
-        std::cerr << "Error writing texture data!" << std::endl;
+        std::cerr << "Error writing texture data for " << package.ResolveFullName(ObjRef) << "!" << std::endl;
         delete texture;
         delete newTexture;
         return false;

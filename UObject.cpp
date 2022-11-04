@@ -87,7 +87,7 @@ std::string UBulkDataMirror::Deserialize(std::istream& stream, UPKInfo& info, UO
     else if (GetDataFlag(UBulkDataFlags::StoredAsSeparateData))
     {
         ToggleDataFlag(UBulkDataFlags::StoredAsSeparateData);
-        size_t currOffset = stream.tellg(); ///save curr offset
+        uint32_t currOffset = stream.tellg(); ///save curr offset
         stream.seekg(SavedBulkDataOffsetInFile);
         BulkData.resize(SavedBulkDataSizeOnDisk);
         stream.read(BulkData.data(), BulkData.size());
@@ -102,7 +102,7 @@ std::string UBulkDataMirror::Deserialize(std::istream& stream, UPKInfo& info, UO
     }
     else
     {
-        size_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
+        uint32_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
         if (SavedBulkDataOffsetInFile + SavedBulkDataSizeOnDisk > maxOffset)
         {
             ss << "Error deserializing bulk data: bad offset or data size!\n";
@@ -213,7 +213,7 @@ std::string UBulkDataMirror::Serialize()
     return ss.str();
 }
 
-std::string UBulkDataMirror::Serialize(size_t offset)
+std::string UBulkDataMirror::Serialize(uint32_t offset)
 {
     if (!LockFileOffset)
         SavedBulkDataOffsetInFile = offset + GetBulkDataRelOffset();
@@ -309,7 +309,7 @@ std::string UTexture2DMipMap::Deserialize(std::istream& stream, UPKInfo& info, U
     return ss.str();
 }
 
-std::string UTexture2DMipMap::Serialize(size_t offset)
+std::string UTexture2DMipMap::Serialize(uint32_t offset)
 {
     std::ostringstream ss;
     ss << UBulkDataMirror::Serialize(offset);
@@ -329,31 +329,164 @@ std::string UDefaultPropertiesList::Deserialize(std::istream& stream, UPKInfo& i
     ss << "UDefaultPropertiesList:\n";
     PropertyOffset = stream.tellg();
     DefaultProperties.clear();
-    size_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
+    uint32_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
     UDefaultProperty Property;
     do
     {
         Property = UDefaultProperty{};
-        ss << Property.Deserialize(stream, info, owner, unsafe, quick);
+        if (info.GetVersion() == VER_BATMAN_CITY)
+            ss << Property.DeserializeBatmanAC(stream, info, owner, unsafe, quick);
+        else
+            ss << Property.Deserialize(stream, info, owner, unsafe, quick);
         DefaultProperties.push_back(Property);
-    } while (Property.GetName() != "None" && stream.good() && (size_t)stream.tellg() < maxOffset);
+    } while (Property.GetName() != "None" && stream.good() && stream.tellg() < maxOffset);
     PropertySize = (unsigned)stream.tellg() - (unsigned)PropertyOffset;
     return ss.str();
 }
 
-std::string BCArrayOfNames::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner)
+std::string UDefaultProperty::DeserializeBatmanAC(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe, bool quick)
 {
+    Init(owner, unsafe, quick);
+    //uint32_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
     std::ostringstream ss;
-    ss << "BCArrayOfNames:\n";
-    stream.read(reinterpret_cast<char*>(&NamesNum), sizeof(NamesNum));
-    ss << "\tNamesNum = " << NamesNum << std::endl;
-    Names.resize(NamesNum);
-    for (unsigned i = 0; i < NamesNum; ++i)
+    ss << "UDefaultProperty (Batman AC):\n";
+    uint16_t type, offset;
+    stream.read(reinterpret_cast<char*>(&type), sizeof(type));
+    switch (type)
     {
-        UNameIndex nameIdx;
-        stream.read(reinterpret_cast<char*>(&nameIdx), sizeof(nameIdx));
-        Names[i] = nameIdx;
-        ss << "\tNameIdx: " << FormatHEX(nameIdx) << " -> " << info.IndexToName(nameIdx) << std::endl;
+        case 0: ///end of properties list
+            Name = "None";
+            Type = "None";
+            ss << "\tType: 0 -> Empty property, end of list." << std::endl;
+            break;
+        case 1: ///ByteProperty
+            Type = "ByteProperty";
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            stream.read(reinterpret_cast<char*>(&offset), sizeof(offset));
+            ss << "\tLocal offset: " << FormatHEX(offset) << std::endl;
+            stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
+            Name = info.IndexToName(NameIdx);
+            ss << "\tNameIdx: " << FormatHEX(NameIdx) << " -> " << info.IndexToName(NameIdx) << std::endl;
+            stream.read(reinterpret_cast<char*>(&PropertySize), sizeof(PropertySize));
+            stream.read(reinterpret_cast<char*>(&ArrayIdx), sizeof(ArrayIdx));
+            stream.read(reinterpret_cast<char*>(&valueNameIdx), sizeof(valueNameIdx));
+            ss << "\tInnerNameIdx: " << FormatHEX(valueNameIdx) << " -> " << info.IndexToName(valueNameIdx) << std::endl;
+            break;
+        case 2: ///IntProperty
+            Type = "IntProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            stream.read(reinterpret_cast<char*>(&offset), sizeof(offset));
+            ss << "\tLocal offset: " << FormatHEX(offset) << std::endl;
+            stream.read(reinterpret_cast<char*>(&valueInt), sizeof(valueInt));
+            ss << "\tValue: " << FormatHEX((uint32_t)valueInt) << " -> " << valueInt << std::endl;
+            if (offset == 0xE0)
+                Name = "SizeX";
+            else if (offset == 0xE4)
+                Name = "SizeY";
+            else if (offset == 0x0138)
+                Name = "MipTailBaseIdx";
+            else if (offset == 0x0140)
+                Name = "NumTFCMipMaps";
+            break;
+        case 3: ///BoolProperty
+            Type = "BoolProperty";
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            stream.read(reinterpret_cast<char*>(&offset), sizeof(offset));
+            ss << "\tLocal offset: " << FormatHEX(offset) << std::endl;
+            stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
+            Name = info.IndexToName(NameIdx);
+            ss << "\tNameIdx: " << FormatHEX(NameIdx) << " -> " << info.IndexToName(NameIdx) << std::endl;
+            stream.read(reinterpret_cast<char*>(&PropertySize), sizeof(PropertySize));
+            stream.read(reinterpret_cast<char*>(&ArrayIdx), sizeof(ArrayIdx));
+            stream.read(reinterpret_cast<char*>(&BoolValue), sizeof(BoolValue));
+            ss << "\tValue: " << FormatHEX(BoolValue) << " -> " << (int)BoolValue << std::endl;
+            break;
+        case 4: ///FloatProperty
+            Type = "FloatProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            stream.read(reinterpret_cast<char*>(&offset), sizeof(offset));
+            ss << "\tLocal offset: " << FormatHEX(offset) << std::endl;
+            stream.read(reinterpret_cast<char*>(&valueFloat), sizeof(valueFloat));
+            ss << "\tValue: " << valueFloat << std::endl;
+            break;
+        case 5: ///ObjectProperty
+            Type = "ObjectProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 6: ///NameProperty
+            Type = "NameProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            stream.read(reinterpret_cast<char*>(&offset), sizeof(offset));
+            ss << "\tLocal offset: " << FormatHEX(offset) << std::endl;
+            stream.read(reinterpret_cast<char*>(&valueNameIdx), sizeof(valueNameIdx));
+            ss << "\tNameIdx: " << FormatHEX(valueNameIdx) << " -> " << info.IndexToName(valueNameIdx) << std::endl;
+            if (offset == 0x104)
+                Name = "TextureFileCacheName";
+            break;
+        case 7: ///DelegateProperty
+            Type = "DelegateProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 8: ///ClassProperty
+            Type = "ClassProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 9: ///ArrayProperty
+            Type = "ArrayProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 10: ///StructProperty
+            Type = "StructProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 11: ///VectorProperty
+            Type = "VectorProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 12: ///RotatorProperty
+            Type = "RotatorProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 13: ///StrProperty
+            Type = "StrProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 14: ///MapProperty
+            Type = "MapProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        case 15: ///InterfaceProperty
+            Type = "InterfaceProperty";
+            Name = Type; //temp
+            ss << "\tType: " << type << " -> " << Type << std::endl;
+            ss << "ToDo!" << std::endl;
+            break;
+        default:
+            Name = "None";
+            Type = "None";
+            ss << "\tType: " << type << " -> unknown property, can't deserialize." << std::endl;
+            break;
     }
     return ss.str();
 }
@@ -361,7 +494,7 @@ std::string BCArrayOfNames::Deserialize(std::istream& stream, UPKInfo& info, UOb
 std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, UObjectReference owner, bool unsafe, bool quick)
 {
     Init(owner, unsafe, quick);
-    size_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
+    uint32_t maxOffset = info.GetExportEntry(owner).SerialOffset + info.GetExportEntry(owner).SerialSize;
     std::ostringstream ss;
     ss << "UDefaultProperty:\n";
     stream.read(reinterpret_cast<char*>(&NameIdx), sizeof(NameIdx));
@@ -405,10 +538,10 @@ std::string UDefaultProperty::Deserialize(std::istream& stream, UPKInfo& info, U
         }
         if (PropertySize > 0)
         {
-            size_t offset = stream.tellg();
+            uint32_t offset = stream.tellg();
             InnerValue.resize(PropertySize);
             stream.read(InnerValue.data(), InnerValue.size());
-            size_t offset2 = stream.tellg();
+            uint32_t offset2 = stream.tellg();
             if (QuickMode == false)
             {
                 stream.seekg(offset);
@@ -655,7 +788,7 @@ std::string UDefaultProperty::FindArrayType(std::string ArrName, std::istream& s
     if (ArrayEntry.Type == "ArrayProperty")
     {
         UArrayProperty ArrProperty;
-        size_t StreamPos = stream.tellg();
+        uint32_t StreamPos = stream.tellg();
         stream.seekg(ArrayEntry.SerialOffset);
         /// quick-deserialize property, as we need only it's inner type info
         ArrProperty.SetRef(ObjRef);
@@ -788,44 +921,75 @@ std::string UDefaultProperty::Serialize(UPKInfo& info)
     return ss.str();
 }
 
-size_t UDefaultProperty::GetInnerValueOffset(uint16_t ver)
+std::string UDefaultProperty::SerializeBatmanAC(UPKInfo& info)
+{
+    ///not all the properties are yet added!
+    std::ostringstream ss;
+    if (Name != "None")
+    {
+        if (Type == "IntProperty")
+        {
+            uint16_t type = 2, offset = 0;
+            if (Name == "SizeX")
+                offset = 0xE0;
+            else if (Name == "SizeY")
+                offset = 0xE4;
+            else if (Name == "MipTailBaseIdx")
+                offset = 0x0138;
+            else if (Name == "NumTFCMipMaps")
+                offset = 0x0140;
+            ss.write(reinterpret_cast<char*>(&type), sizeof(type));
+            ss.write(reinterpret_cast<char*>(&offset), sizeof(offset));
+            if (InnerValue.size() > 0)
+                ss.write(InnerValue.data(), InnerValue.size());
+        }
+        else if (Type == "NameProperty")
+        {
+            uint16_t type = 6, offset = 0;
+            if (Name == "TextureFileCacheName")
+                offset = 0x104;
+            ss.write(reinterpret_cast<char*>(&type), sizeof(type));
+            ss.write(reinterpret_cast<char*>(&offset), sizeof(offset));
+            if (InnerValue.size() > 0)
+                ss.write(InnerValue.data(), InnerValue.size());
+        }
+    }
+    return ss.str();
+}
+
+uint32_t UDefaultProperty::GetInnerValueOffset(uint16_t ver)
 {
     if (Name == "None")
     {
-        return 8;
+        if (ver == VER_BATMAN_CITY)
+            return 2;
+        else
+            return 8;
     }
     else if (Type == "ByteProperty")
     {
-        if (ver >= VER_XCOM)
+        if (ver == VER_BATMAN_CITY)
+            return 20; ///2+2+8+4+4
+        else if (ver >= VER_XCOM)
             return 32; ///8+8+4+4+8
         return 24;
     }
     else
     {
-        return 24; ///8+8+4+4
+        if (ver == VER_BATMAN_CITY)
+            return 4; ///2+2 - cautious: might not be true for all of them!!!
+        else
+            return 24; ///8+8+4+4
     }
 }
 
 std::string UObject::Deserialize(std::istream& stream, UPKInfo& info)
 {
+    uint32_t beginOffset = stream.tellg();
     std::ostringstream ss;
     ss << "UObject:\n";
-    if (info.GetVersion() == VER_BATMAN_CITY)
-    {
-        stream.read(reinterpret_cast<char*>(&BCUnknown1), sizeof(BCUnknown1));
-        ss << "\tUnknown1 = " << FormatHEX((uint32_t)BCUnknown1) << std::endl;
-        stream.read(reinterpret_cast<char*>(&BCUnknown2), sizeof(BCUnknown2));
-        ss << "\tUnknown2 = " << FormatHEX((uint32_t)BCUnknown2) << std::endl;
-    }
     stream.read(reinterpret_cast<char*>(&ObjRef), sizeof(ObjRef));
     ss << "\tPrevObjRef = " << FormatHEX((uint32_t)ObjRef) << " -> " << info.ObjRefToName(ObjRef) << std::endl;
-    if (info.GetVersion() == VER_BATMAN_CITY)
-    {
-        ss << BCUnkNames.Deserialize(stream, info, ThisRef);
-        uint32_t pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
-        if (pos == info.GetExportEntry(ThisRef).SerialSize)
-            return ss.str();
-    }
     if (Type != GlobalType::UClass)
     {
         FObjectExport ThisTableEntry = info.GetExportEntry(ThisRef);
@@ -836,6 +1000,8 @@ std::string UObject::Deserialize(std::istream& stream, UPKInfo& info)
         }
         ss << DefaultProperties.Deserialize(stream, info, ThisRef, TryUnsafe, QuickMode);
     }
+    uint32_t endOffset = stream.tellg();
+    UObjExportEntrySize = endOffset - beginOffset;
     return ss.str();
 }
 
@@ -1304,6 +1470,9 @@ std::string ULevel::Deserialize(std::istream& stream, UPKInfo& info)
     UObjectReference A;
     uint32_t NumActors;
     ss << UObject::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() > info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
     uint32_t pos = ((unsigned)stream.tellg() - info.GetExportEntry(ThisRef).SerialOffset);
     ss << "ULevel:\n";
     stream.read(reinterpret_cast<char*>(&A), sizeof(A));
@@ -1343,6 +1512,9 @@ std::string UTexture2D::Deserialize(std::istream& stream, UPKInfo& info)
 {
     std::ostringstream ss;
     ss << UTexture::Deserialize(stream, info);
+    /// check for bad data
+    if ((unsigned)stream.tellg() >= info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize)
+        return ss.str();
 
     ///attempt to init vars from default property list
     std::vector<UDefaultProperty> props = DefaultProperties.GetDefaultProperties();
@@ -1360,7 +1532,7 @@ std::string UTexture2D::Deserialize(std::istream& stream, UPKInfo& info)
     stream.read(reinterpret_cast<char*>(&Unknown3), sizeof(Unknown3));
     ss << "\tUnknown3: " << FormatHEX(Unknown3) << std::endl;
 
-    size_t maxOffset = info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize;
+    uint32_t maxOffset = info.GetExportEntry(ThisRef).SerialOffset + info.GetExportEntry(ThisRef).SerialSize;
 
     uint32_t absOffset;
     stream.read(reinterpret_cast<char*>(&absOffset), sizeof(absOffset));
@@ -1376,6 +1548,7 @@ std::string UTexture2D::Deserialize(std::istream& stream, UPKInfo& info)
 
     MipMaps.clear();
     MipMaps.reserve(MipMapCount);
+    NumEmptyMipMaps = 0;
     for (unsigned i = 0; i < MipMapCount; ++i)
     {
         UTexture2DMipMap nextData;
@@ -1389,7 +1562,20 @@ std::string UTexture2D::Deserialize(std::istream& stream, UPKInfo& info)
             return ss.str();
         }
         MipMaps.push_back(nextData);
+        if (nextData.GetWasCompressed())
+        {
+            HasCompressedMipMaps = true;
+            int maxRes = nextData.GetSizeX() > nextData.GetSizeY() ? nextData.GetSizeX() : nextData.GetSizeY();
+            if (MinObservedResForCompression < 0 || MinObservedResForCompression > maxRes)
+                MinObservedResForCompression = maxRes;
+        }
+        if (nextData.IsDataEmpty())
+            ++NumEmptyMipMaps;
     }
+    if (NumEmptyMipMaps)
+        ss << "\tNum of empty mipmaps: " << NumEmptyMipMaps << std::endl;
+    if (info.GetVersion() == VER_BATMAN_CITY && NumTFCMipMaps != -1)
+        ss << "\tNumTFCMipMaps: " << NumTFCMipMaps << std::endl;
     MipMapCount = MipMaps.size();
     if (MipMaps.size() > 0)
     {
@@ -1410,7 +1596,7 @@ std::string UTexture2D::Deserialize(std::istream& stream, UPKInfo& info)
     return ss.str();
 }
 
-std::string UTexture2D::SerializeTexture2DData(size_t offset)
+std::string UTexture2D::SerializeTexture2DData(uint32_t offset)
 {
     std::stringstream ss;
 
@@ -1424,7 +1610,7 @@ std::string UTexture2D::SerializeTexture2DData(size_t offset)
     ss.write(reinterpret_cast<char*>(&Unknown2), 4);
     ss.write(reinterpret_cast<char*>(&Unknown3), 4);
     ///absolute file offset for the data following this absolute file offset
-    size_t nextDataOffset = offset + ss.tellp() + 4;
+    uint32_t nextDataOffset = offset + ss.tellp() + 4;
     ss.write(reinterpret_cast<char*>(&nextDataOffset), 4);
     ss.write(reinterpret_cast<char*>(&MipMapCount), 4);
 
@@ -1444,12 +1630,17 @@ std::string UTexture2D::SerializeTexture2DData(size_t offset)
 bool UTexture2D::ExportToExternalFile(CustomTFC& T2DFile, UPKInfo& info, bool compressedOnly)
 {
     bool success = false;
+    NumTFCMipMaps = 0;
     for (unsigned i = 0; i < MipMapCount; ++i)
     {
         if (MipMaps[i].IsDataCompressed() || !compressedOnly)
         {
             MipMaps[i].SetExternalFileName(TextureFileCacheName + ".tfc");
-            success |= MipMaps[i].ExportToExternalFile(T2DFile, info.GetExportEntry(ThisRef).FullName);
+            if (MipMaps[i].ExportToExternalFile(T2DFile, info.GetExportEntry(ThisRef).FullName))
+            {
+                success = true;
+                ++NumTFCMipMaps;
+            }
         }
     }
     return success;
@@ -1492,6 +1683,8 @@ void UTexture2D::SetClassVarFromProperty(UDefaultProperty& property, UPKInfo& in
         Height = property.GetValueInt();
     else if (property.GetName() == "MipTailBaseIdx" && property.GetType() == "IntProperty")
         MipTailBaseIdx = property.GetValueInt();
+    else if (property.GetName() == "NumTFCMipMaps" && property.GetType() == "IntProperty")
+        NumTFCMipMaps = property.GetValueInt();
     else if (property.GetName() == "LODBias" && property.GetType() == "IntProperty")
         LODBias = property.GetValueInt();
     else if (property.GetName() == "NeverStream" && property.GetType() == "BoolProperty")
