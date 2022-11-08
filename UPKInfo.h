@@ -12,8 +12,24 @@
 #include "UFlags.h"
 
 #define VER_XCOM 845
+<<<<<<< Updated upstream
 #define VER_BATMAN 576
 #define VER_BATMAN_CITY 805
+=======
+#define VER_XMEN_ORIGINS 568
+#define VER_BATMAN 576
+#define VER_BATMAN_CITY 805
+#define VER_XCOM 845
+#define VER_XCOM_DECLASSIFIED 849
+#define VER_MURDERED_SOUL_SUSPECT 860
+#define VER_STYX 866
+#define VER_SHERLOCK_7 868
+#define VER_KILLING_FLOOR_2 871
+#define VER_BULLETSTORM_FULL_CLIP 887
+#define VER_ASSASSINS_CREED 889
+#define VER_SHADOW_COMPLEX 893
+#define VER_SHERLOCK_8 895
+>>>>>>> Stashed changes
 
 enum class UPKReadErrors
 {
